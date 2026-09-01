@@ -25,19 +25,19 @@ class TableCheckBoxDelegate(QStyledItemDelegate):
     def _palette(cls, *, hover: bool, enabled: bool):
         if is_light():
             if not enabled:
-                return QColor("#E3E9F4"), QColor("#F6F8FD")
-            border = QColor("#6366F1" if hover else "#B9C6DE")
-            fill = QColor("#6366F1") if hover else QColor("#FFFFFF")
+                return QColor("#DDE3EE"), QColor("#F5F7FB")
+            border = QColor("#5B5CE2" if hover else "#B8C2D4")
+            fill = QColor("#5B5CE2") if hover else QColor("#FFFFFF")
             return border, fill
         if not enabled:
-            return QColor("#332A5C"), QColor("#16112A")
-        border = QColor("#7E5FC9" if hover else "#52418C")
-        fill = QColor("#261C47") if hover else QColor("#171129")
+            return QColor("#26324A"), QColor("#0F1728")
+        border = QColor("#8B9BFF" if hover else "#405171")
+        fill = QColor("#1B2742") if hover else QColor("#11182B")
         return border, fill
 
     @classmethod
     def _check_fill(cls) -> QColor:
-        return QColor("#6366F1") if is_light() else QColor("#8B5CF6")
+        return QColor("#5B5CE2") if is_light() else QColor("#6D7CFF")
 
     @classmethod
     def _rect(cls, option) -> QRect:

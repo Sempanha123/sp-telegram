@@ -20,8 +20,8 @@ class SelectAllHeader(QHeaderView):
     @classmethod
     def _section_palette(cls):
         if is_light():
-            return QColor("#F6F8FD"), QColor("#E3E9F4"), QColor("#B9C6DE"), QColor("#6366F1")
-        return QColor("#1A1338"), QColor("#3B2E68"), QColor("#52418C"), QColor("#8B5CF6")
+            return QColor("#F8FAFD"), QColor("#DDE3EE"), QColor("#B8C2D4"), QColor("#5B5CE2")
+        return QColor("#141D32"), QColor("#2B3855"), QColor("#405171"), QColor("#6D7CFF")
 
     def _source(self):
         model = self.model()

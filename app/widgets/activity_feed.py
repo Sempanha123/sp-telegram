@@ -10,6 +10,7 @@ from __future__ import annotations
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from app.theme_state import is_light
 from app.utils.formatters import format_local_datetime
 
 
@@ -27,6 +28,13 @@ class ActivityFeed(QFrame):
         "WARNING": ("#D97706", "#FEF3C7"),
         "ERROR": ("#DC2626", "#FEE2E2"),
         "CRITICAL": ("#DC2626", "#FEE2E2"),
+    }
+    DARK_LEVEL_COLORS = {
+        "INFO": ("#7DD3FC", "#132D42"),
+        "SUCCESS": ("#6EE7B7", "#10382F"),
+        "WARNING": ("#FCD34D", "#3B2E12"),
+        "ERROR": ("#FDA4AF", "#3D1E2A"),
+        "CRITICAL": ("#FDA4AF", "#3D1E2A"),
     }
     CATEGORY_ICONS = {
         "ACCOUNT": "👤", "GROUP": "👥", "MEMBER": "🧑", "CAMPAIGN": "📣",
@@ -97,7 +105,9 @@ class ActivityFeed(QFrame):
         action = str(getattr(entry, "action", "") or "")
         created = getattr(entry, "created_at", None)
 
-        fg, bg = self.LEVEL_COLORS.get(level, ("#64748B", "#E2E8F0"))
+        palette = self.LEVEL_COLORS if is_light() else self.DARK_LEVEL_COLORS
+        fg, bg = palette.get(level, ("#64748B", "#E2E8F0") if is_light() else ("#9AA7C0", "#1C263A"))
+        text_color = "#172033" if is_light() else "#F5F7FF"
         icon = self.CATEGORY_ICONS.get(category, "•")
 
         row = QFrame()
@@ -119,7 +129,7 @@ class ActivityFeed(QFrame):
         text_col.setSpacing(1)
         text = QLabel(message)
         text.setWordWrap(True)
-        text.setStyleSheet("color: #1E293B; font-size: 12px; background: transparent; border: 0;")
+        text.setStyleSheet(f"color: {text_color}; font-size: 12px; background: transparent; border: 0;")
         text_col.addWidget(text)
         meta = QLabel()
         parts = []

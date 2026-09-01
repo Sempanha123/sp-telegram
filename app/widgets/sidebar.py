@@ -54,10 +54,10 @@ class Sidebar(QFrame):
 
         root = QVBoxLayout(self); root.setContentsMargins(10, 14, 10, 10); root.setSpacing(6)
         header = QFrame(); header.setObjectName("sidebar_header"); header_layout = QHBoxLayout(header); header_layout.setContentsMargins(4, 0, 4, 8); header_layout.setSpacing(10)
-        self.lbl_brand_icon = QLabel("✨"); self.lbl_brand_icon.setObjectName("lbl_brand_icon"); self.lbl_brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_brand_icon = QLabel("SP"); self.lbl_brand_icon.setObjectName("lbl_brand_icon"); self.lbl_brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         brand_text = QWidget(); brand_text.setObjectName("sidebar_brand_text"); brand_text.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); brand_text.setAutoFillBackground(False)
         brand_layout = QVBoxLayout(brand_text); brand_layout.setContentsMargins(0,0,0,0); brand_layout.setSpacing(0)
-        self.lbl_app_name = QLabel("SP Telegram"); self.lbl_app_name.setObjectName("lbl_app_name"); self.lbl_app_name.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); self.lbl_app_name.setAutoFillBackground(False); self.lbl_app_name.setStyleSheet("font-weight: 800; font-size: 16px;")
+        self.lbl_app_name = QLabel("SP Telegram"); self.lbl_app_name.setObjectName("lbl_app_name"); self.lbl_app_name.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); self.lbl_app_name.setAutoFillBackground(False)
         self.lbl_edition = QLabel(""); self.lbl_edition.setProperty("muted", True); self.lbl_edition.hide()
         brand_layout.addWidget(self.lbl_app_name)
         header_layout.addWidget(self.lbl_brand_icon); header_layout.addWidget(brand_text, 1)
@@ -73,7 +73,7 @@ class Sidebar(QFrame):
         root.addWidget(self.btn_toggle_sidebar)
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        # Keep the colorful sidebar gradient visible through the nav scroll area.
+        # Keep the sidebar surface visible through the navigation scroll area.
         # NOTE: an inline stylesheet on the scroll area breaks QPushButton background
         # rendering (checked/hover) in PySide6 — transparency is handled in the QSS
         # via `QFrame#sidebar QScrollArea { background: transparent; }`.

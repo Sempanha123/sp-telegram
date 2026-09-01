@@ -39,9 +39,9 @@ class StatusBadge(QLabel):
         # palette for the active theme themselves.  Without this the dark palette
         # leaked into the soft-light UI as muddy dark-on-light pills.
         if is_light():
-            bg, fg = LIGHT_STATUS_COLORS.get(key, ("#EDF1F7", "#64748B"))
+            bg, fg = LIGHT_STATUS_COLORS.get(key, ("#EEF2F7", "#64748B"))
         else:
-            bg, fg = STATUS_COLORS.get(key, ("#202734", "#9DA9BA"))
+            bg, fg = STATUS_COLORS.get(key, ("#1C263A", "#9AA7C0"))
         self.setText(f"●  {display}")
         self.setStyleSheet(
             "QLabel{"

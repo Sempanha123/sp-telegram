@@ -10,7 +10,9 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-# Friendly pastel palette (fg, bg) pairs used across charts.
+from app.theme_state import is_light
+
+# Product palette (foreground, soft background) pairs used across charts.
 CHART_PALETTE = [
     ("#2563EB", "#DBEAFE"),  # blue
     ("#7C3AED", "#EDE9FE"),  # purple
@@ -23,6 +25,26 @@ CHART_PALETTE = [
     ("#0891B2", "#CFFAFE"),  # cyan
     ("#65A30D", "#ECFCCB"),  # lime
 ]
+
+
+def _ui_palette() -> dict[str, str]:
+    if is_light():
+        return {
+            "text": "#172033",
+            "secondary": "#56627A",
+            "muted": "#8491A9",
+            "surface": "#FFFFFF",
+            "track": "#EEF2F8",
+            "grid": "#E5EAF2",
+        }
+    return {
+        "text": "#F5F7FF",
+        "secondary": "#B7C1D9",
+        "muted": "#7F8BA6",
+        "surface": "#11182B",
+        "track": "#1C2740",
+        "grid": "#283651",
+    }
 
 STATUS_COLORS = {
     "HEALTHY": ("#059669", "#D1FAE5"),
@@ -108,11 +130,12 @@ class BarChartWidget(QFrame):
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        ui = _ui_palette()
         w = self.width()
         h = self.height()
 
         if self._title:
-            painter.setPen(QColor("#0F172A"))
+            painter.setPen(QColor(ui["text"]))
             font = QFont()
             font.setPixelSize(13)
             font.setBold(True)
@@ -123,7 +146,7 @@ class BarChartWidget(QFrame):
             top = 12
 
         if not self._data:
-            painter.setPen(QColor("#94A3B8"))
+            painter.setPen(QColor(ui["muted"]))
             font = QFont()
             font.setPixelSize(12)
             painter.setFont(font)
@@ -137,7 +160,7 @@ class BarChartWidget(QFrame):
             fg, bg = _palette_for(label, i)
             bar_w = max(6, int(chart_w * (value / max_val)))
             # label
-            painter.setPen(QColor("#334155"))
+            painter.setPen(QColor(ui["secondary"]))
             font = QFont()
             font.setPixelSize(12)
             painter.setFont(font)
@@ -148,7 +171,7 @@ class BarChartWidget(QFrame):
             # bar background track
             track = QRectF(self._pad + self._label_w, y, chart_w, self._bar_h)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor("#F1F5F9"))
+            painter.setBrush(QColor(ui["track"]))
             painter.drawRoundedRect(track, self._bar_h / 2, self._bar_h / 2)
             # bar
             bar = QRectF(self._pad + self._label_w, y, bar_w, self._bar_h)
@@ -158,7 +181,7 @@ class BarChartWidget(QFrame):
             painter.setBrush(grad)
             painter.drawRoundedRect(bar, self._bar_h / 2, self._bar_h / 2)
             # value
-            painter.setPen(QColor("#0F172A"))
+            painter.setPen(QColor(ui["text"]))
             font.setBold(True)
             painter.setFont(font)
             painter.drawText(
@@ -187,11 +210,12 @@ class DonutChartWidget(QFrame):
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        ui = _ui_palette()
         w = self.width()
         h = self.height()
 
         if self._title:
-            painter.setPen(QColor("#0F172A"))
+            painter.setPen(QColor(ui["text"]))
             font = QFont()
             font.setPixelSize(13)
             font.setBold(True)
@@ -202,7 +226,7 @@ class DonutChartWidget(QFrame):
             top = 12
 
         if not self._data:
-            painter.setPen(QColor("#94A3B8"))
+            painter.setPen(QColor(ui["muted"]))
             font = QFont()
             font.setPixelSize(12)
             painter.setFont(font)
@@ -228,9 +252,9 @@ class DonutChartWidget(QFrame):
 
         # center hole
         hole = QRectF(rect.center().x() - diameter * 0.42, rect.center().y() - diameter * 0.42, diameter * 0.84, diameter * 0.84)
-        painter.setBrush(QColor("#FFFFFF"))
+        painter.setBrush(QColor(ui["surface"]))
         painter.drawEllipse(hole)
-        painter.setPen(QColor("#0F172A"))
+        painter.setPen(QColor(ui["text"]))
         font = QFont()
         font.setPixelSize(20)
         font.setBold(True)
@@ -239,7 +263,7 @@ class DonutChartWidget(QFrame):
         font.setPixelSize(11)
         font.setBold(False)
         painter.setFont(font)
-        painter.setPen(QColor("#64748B"))
+        painter.setPen(QColor(ui["muted"]))
         painter.drawText(hole.adjusted(0, 14, 0, 0), Qt.AlignmentFlag.AlignCenter, self._total_label)
 
         # legend
@@ -250,12 +274,12 @@ class DonutChartWidget(QFrame):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(fg))
             painter.drawEllipse(QRectF(lx, ly + 4, 10, 10))
-            painter.setPen(QColor("#334155"))
+            painter.setPen(QColor(ui["secondary"]))
             font = QFont()
             font.setPixelSize(12)
             painter.setFont(font)
             painter.drawText(QRectF(lx + 16, ly, legend_w - 16, 18), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, str(label))
-            painter.setPen(QColor("#0F172A"))
+            painter.setPen(QColor(ui["text"]))
             font.setBold(True)
             painter.setFont(font)
             painter.drawText(QRectF(lx + 16, ly + 18, legend_w - 16, 16), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{value:,}  ({value * 100 / total:.0f}%)")
@@ -286,11 +310,12 @@ class TrendChartWidget(QFrame):
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        ui = _ui_palette()
         w = self.width()
         h = self.height()
 
         if self._title:
-            painter.setPen(QColor("#0F172A"))
+            painter.setPen(QColor(ui["text"]))
             font = QFont()
             font.setPixelSize(13)
             font.setBold(True)
@@ -301,7 +326,7 @@ class TrendChartWidget(QFrame):
             top = 12
 
         if not self._data:
-            painter.setPen(QColor("#94A3B8"))
+            painter.setPen(QColor(ui["muted"]))
             font = QFont()
             font.setPixelSize(12)
             painter.setFont(font)
@@ -314,7 +339,7 @@ class TrendChartWidget(QFrame):
         max_val = max(v for _, v in self._data) or 1
 
         # grid lines
-        painter.setPen(QPen(QColor("#EEF2F7"), 1))
+        painter.setPen(QPen(QColor(ui["grid"]), 1))
         for i in range(5):
             gy = top + pad_t + plot_h * i / 4
             painter.drawLine(pad_l, int(gy), w - pad_r, int(gy))
@@ -351,13 +376,13 @@ class TrendChartWidget(QFrame):
                 painter.drawLine(int(points[i - 1][0]), int(points[i - 1][1]), int(points[i][0]), int(points[i][1]))
 
             # dots
-            painter.setBrush(QColor("#FFFFFF"))
+            painter.setBrush(QColor(ui["surface"]))
             for x, y in points:
                 painter.setPen(QPen(QColor(self._color), 2))
                 painter.drawEllipse(QRectF(x - 3, y - 3, 6, 6))
 
         # y labels
-        painter.setPen(QColor("#94A3B8"))
+        painter.setPen(QColor(ui["muted"]))
         font = QFont()
         font.setPixelSize(10)
         painter.setFont(font)

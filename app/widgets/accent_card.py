@@ -7,9 +7,9 @@ from app.icons import IconManager
 
 
 class AccentCard(QFrame):
-    """A colorful, friendly metric card with a tinted accent background.
+    """A compact metric card with a theme-aware accent surface.
 
-    ``accent`` selects one of the soft pastel palettes defined in the light
+    ``accent`` selects one of the semantic palettes defined in the active
     theme (primary / success / warning / danger / purple / info).
     """
 

@@ -1,62 +1,57 @@
 /* ============================================================
-   SP Telegram — Sweet Candy Dark Theme
-   Deep purple night base with a soft pastel gradient sidebar,
-   pink/cyan primary accents, mint success, gold warning and
-   hot pink danger. Surfaces stay low-saturation so the colorful
-   accents pop without hurting readability.
+   SP Telegram — Modern Dark Theme
+   Deep navy workspace surfaces with indigo/cyan accents,
+   restrained status colors, and crisp native Qt controls.
    ============================================================ */
 * {
     font-family: "Segoe UI", "Noto Sans Khmer", sans-serif;
     font-size: 13px;
-    color: #F4F1FF;
-    transition: all 0.2s ease;
+    color: #F5F7FF;
 }
-QMainWindow, QWidget { background: #0F0B1E; color: #F4F1FF; }
-QWidget#central_root { background: #0F0B1E; }
+QMainWindow, QWidget { background: #0B1020; color: #F5F7FF; }
+QWidget#central_root { background: #0B1020; }
 QFrame#sidebar {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #FFB6C1, stop:0.5 #DDA0DD, stop:1 #9370DB);
+        stop:0 #111A35, stop:0.52 #1C2C56, stop:1 #12475E);
     border-right: 0;
     border-radius: 0 12px 12px 0;
 }
-QFrame#topbar { background: #14102B; border-bottom: 1px solid #2B2150; }
+QFrame#topbar { background: #0E1628; border-bottom: 1px solid #24314A; }
 QFrame[card="true"], QFrame[sectionCard="true"], QGroupBox {
-    background: #1E1E1E;
-    border: 1px solid #3A2E5C;
-    border-radius: 16px;
-    transition: border-color 0.2s ease;
+    background: #11182B;
+    border: 1px solid #2B3855;
+    border-radius: 12px;
 }
 QFrame[card="true"]:hover, QFrame[sectionCard="true"]:hover {
-    border-color: #5A4B8C;
+    border-color: #405171;
 }
 QGroupBox { margin-top: 14px; padding-top: 15px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 5px; color: #FFB6C1; }
-QLabel[muted="true"], QLabel#lbl_muted { color: #6F6896; }
-QLabel[secondary="true"] { color: #A9A3CC; }
+QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 5px; color: #8B9BFF; }
+QLabel[muted="true"], QLabel#lbl_muted { color: #7F8BA6; }
+QLabel[secondary="true"] { color: #B7C1D9; }
 QLabel#lbl_app_name {
-    color: #FF69B4;
+    color: #FFFFFF;
     font-size: 16px;
     font-weight: 800;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
-QLabel#lbl_page_title { color: #F4F1FF; font-size: 14px; font-weight: 650; }
-QLabel#lbl_page_subtitle { color: #6F6896; font-size: 12px; }
+QLabel#lbl_page_title { color: #F5F7FF; font-size: 16px; font-weight: 700; }
+QLabel#lbl_page_subtitle { color: #7F8BA6; font-size: 12px; }
 QLabel#lbl_stat_value { font-size: 27px; font-weight: 700; }
-QStatusBar { background: #120B2A; color: #6F6896; border-top: 1px solid #2B2150; min-height: 24px; }
-QToolTip { background: #1D1636; color: #F4F1FF; border: 1px solid #3B2E68; padding: 6px 8px; border-radius: 6px; }
-QMenu { background: #1D1636; border: 1px solid #3B2E68; border-radius: 8px; padding: 6px; }
+QStatusBar { background: #0B1020; color: #7F8BA6; border-top: 1px solid #24314A; min-height: 24px; }
+QToolTip { background: #172036; color: #F5F7FF; border: 1px solid #2D3B59; padding: 6px 8px; border-radius: 6px; }
+QMenu { background: #172036; border: 1px solid #2D3B59; border-radius: 8px; padding: 6px; }
 QMenu::item { padding: 8px 30px 8px 10px; border-radius: 6px; }
-QMenu::item:selected { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2A1F55, stop:1 #22315F); }
-QMenu::separator { height: 1px; background: #3B2E68; margin: 5px 8px; }
+QMenu::item:selected { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #202D52, stop:1 #16475C); }
+QMenu::separator { height: 1px; background: #2D3B59; margin: 5px 8px; }
 QScrollBar:vertical { width: 9px; background: transparent; margin: 2px; }
-QScrollBar::handle:vertical { background: #3B2E68; border-radius: 4px; min-height: 28px; }
-QScrollBar::handle:vertical:hover { background: #52418C; }
+QScrollBar::handle:vertical { background: #2D3B59; border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: #405171; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar:horizontal { height: 9px; background: transparent; margin: 2px; }
-QScrollBar::handle:horizontal { background: #3B2E68; border-radius: 4px; min-width: 28px; }
+QScrollBar::handle:horizontal { background: #2D3B59; border-radius: 4px; min-width: 28px; }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-QDialog { background: #0F0B1E; }
-QMessageBox { background: #171129; }
-QSplitter::handle { background: #292049; }
-QCalendarWidget QWidget { alternate-background-color: #1D1636; }
-QCalendarWidget QAbstractItemView { selection-background-color: #8B5CF6; selection-color: white; }
+QDialog { background: #0B1020; }
+QMessageBox { background: #11182B; }
+QSplitter::handle { background: #26334D; }
+QCalendarWidget QWidget { alternate-background-color: #172036; }
+QCalendarWidget QAbstractItemView { selection-background-color: #6D7CFF; selection-color: white; }

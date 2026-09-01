@@ -43,24 +43,24 @@ class TopBar(QFrame):
         super().__init__(parent); self.setObjectName("topbar"); self._paused = False
         layout = QHBoxLayout(self); layout.setContentsMargins(20, 9, 18, 9); layout.setSpacing(12)
         title_host=QWidget(); title_layout=QVBoxLayout(title_host); title_layout.setContentsMargins(0,0,0,0); title_layout.setSpacing(0)
-        self.lbl_page_title = QLabel("Dashboard"); self.lbl_page_title.setObjectName("lbl_page_title"); self.lbl_page_title.setStyleSheet("font-size: 16px; font-weight: 700;")
+        self.lbl_page_title = QLabel("Dashboard"); self.lbl_page_title.setObjectName("lbl_page_title")
         self.lbl_page_subtitle = QLabel(self.PAGE_SUBTITLES["Dashboard"]); self.lbl_page_subtitle.setObjectName("lbl_page_subtitle")
         title_layout.addWidget(self.lbl_page_title); title_layout.addWidget(self.lbl_page_subtitle); layout.addWidget(title_host)
         layout.addStretch(1)
 
         search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(9,0,7,0); search_layout.setSpacing(6)
-        search_icon=QLabel(); search_icon.setPixmap(IconManager.get("search").pixmap(16,16)); search_icon.setStyleSheet("margin-right: 8px;"); search_layout.addWidget(search_icon)
-        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText("Search accounts, groups, members, campaigns…"); self.le_global_search.setMinimumWidth(300); self.le_global_search.setStyleSheet("border-radius: 16px; padding-left: 12px;"); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
+        search_icon=QLabel(); search_icon.setPixmap(IconManager.get("search").pixmap(16,16)); search_layout.addWidget(search_icon)
+        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText("Search accounts, groups, members, campaigns…"); self.le_global_search.setMinimumWidth(240); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
         self.lbl_search_shortcut=QLabel("Ctrl K"); self.lbl_search_shortcut.setObjectName("lbl_search_shortcut")
         search_layout.addWidget(self.le_global_search,1); search_layout.addWidget(self.lbl_search_shortcut); layout.addWidget(search_frame,2)
         self.btn_global_search = QPushButton("Search", self); self.btn_global_search.setObjectName("btn_global_search"); self.btn_global_search.hide(); self.btn_global_search.clicked.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
 
-        self.lbl_internet_status = QLabel("NET  ●"); self.lbl_internet_status.setObjectName("lbl_internet_status"); self.lbl_internet_status.setProperty("statusChip", True); self.lbl_internet_status.setStyleSheet("margin-right: 8px;")
+        self.lbl_internet_status = QLabel("NET  ●"); self.lbl_internet_status.setObjectName("lbl_internet_status"); self.lbl_internet_status.setProperty("statusChip", True)
         self.lbl_telegram_global_status = QLabel("TG  ●"); self.lbl_telegram_global_status.setObjectName("lbl_telegram_global_status"); self.lbl_telegram_global_status.setProperty("statusChip", True); self.lbl_connection=self.lbl_telegram_global_status
         self.lbl_database = QLabel("DB  ●"); self.lbl_database.setObjectName("lbl_database_status"); self.lbl_database.setProperty("statusChip", True)
         for chip in (self.lbl_internet_status,self.lbl_telegram_global_status,self.lbl_database): layout.addWidget(chip)
 
-        self.btn_license_status = QPushButton("License"); self.btn_license_status.setObjectName("btn_license_status"); self.btn_license_status.setStyleSheet("font-weight: 600;"); self.btn_license_status.setToolTip("License\nNo active license"); self.btn_license_status.clicked.connect(self.licenseRequested); layout.addWidget(self.btn_license_status)
+        self.btn_license_status = QPushButton("License"); self.btn_license_status.setObjectName("btn_license_status"); self.btn_license_status.setToolTip("License\nNo active license"); self.btn_license_status.clicked.connect(self.licenseRequested); layout.addWidget(self.btn_license_status)
 
         self.btn_notifications = IconButton("notification","Notifications",self); self.btn_notifications.setObjectName("btn_notifications"); self.btn_notifications.clicked.connect(self.notificationsRequested)
         self.btn_toggle_theme = IconButton("theme","Toggle theme",self); self.btn_toggle_theme.setObjectName("btn_toggle_theme"); self.btn_toggle_theme.clicked.connect(self.themeRequested)

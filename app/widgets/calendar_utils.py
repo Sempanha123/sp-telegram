@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QToolButton,
 )
 
+from app.theme_state import is_light
+
 
 CALENDAR_MINIMUM_SIZE = QSize(420, 320)
 DATE_EDITOR_MINIMUM_WIDTH = 210
@@ -21,11 +23,11 @@ DAY_ROW_MINIMUM_HEIGHT = 36
 class PolishedCalendarWidget(QCalendarWidget):
     """DPI-friendly calendar with full-cell selection and a distinct today ring."""
 
-    SELECTED = QColor("#4C8DFF")
     SELECTED_TEXT = QColor("#FFFFFF")
-    TODAY_BORDER = QColor("#6AA0FF")
 
     def paintCell(self, painter: QPainter, rect, date: QDate) -> None:  # noqa: N802
+        selected = QColor("#5B5CE2" if is_light() else "#6D7CFF")
+        today_border = QColor("#818CF8" if is_light() else "#8B9BFF")
         # Let Qt render normal/disabled/outside-month/weekend typography first.
         if date != self.selectedDate():
             super().paintCell(painter, rect, date)
@@ -33,7 +35,7 @@ class PolishedCalendarWidget(QCalendarWidget):
                 painter.save()
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.setPen(QPen(self.TODAY_BORDER, 1.5))
+                painter.setPen(QPen(today_border, 1.5))
                 painter.drawRoundedRect(QRectF(rect).adjusted(3.5, 3.5, -3.5, -3.5), 7, 7)
                 painter.restore()
             return
@@ -42,7 +44,7 @@ class PolishedCalendarWidget(QCalendarWidget):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(self.SELECTED)
+        painter.setBrush(selected)
         selected_rect = QRectF(rect).adjusted(2.5, 2.5, -2.5, -2.5)
         painter.drawRoundedRect(selected_rect, 7, 7)
         painter.setPen(self.SELECTED_TEXT)
@@ -74,7 +76,7 @@ def configure_calendar_popup(editor: QDateEdit | QDateTimeEdit) -> QCalendarWidg
 
     # Use a subtle weekend tint rather than Qt's default aggressive red.
     weekend = QTextCharFormat()
-    weekend.setForeground(QColor("#AAB6C8"))
+    weekend.setForeground(QColor("#8491A9" if is_light() else "#91A1C4"))
     calendar.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, weekend)
     calendar.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, weekend)
 
@@ -101,6 +103,7 @@ def configure_calendar_popup(editor: QDateEdit | QDateTimeEdit) -> QCalendarWidg
         if button is not None:
             button.setMinimumWidth(88)
 
+    hover = "#EEF0FE" if is_light() else "#1B2742"
     calendar.setStyleSheet(
         "QCalendarWidget QWidget#qt_calendar_navigationbar { min-height: 40px; }"
         "QCalendarWidget QToolButton { min-height: 30px; padding: 4px 10px; font-weight: 600; }"
@@ -108,6 +111,6 @@ def configure_calendar_popup(editor: QDateEdit | QDateTimeEdit) -> QCalendarWidg
         "QCalendarWidget QToolButton#qt_calendar_nextmonth { min-width: 36px; }"
         "QCalendarWidget QAbstractItemView { outline: 0; selection-background-color: transparent; selection-color: #FFFFFF; }"
         "QCalendarWidget QAbstractItemView::item { min-height: 36px; padding: 5px; }"
-        "QCalendarWidget QAbstractItemView::item:hover { background: #1B2432; border-radius: 6px; }"
+        f"QCalendarWidget QAbstractItemView::item:hover {{ background: {hover}; border-radius: 6px; }}"
     )
     return calendar
