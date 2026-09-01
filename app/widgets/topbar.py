@@ -15,6 +15,9 @@ class TopBar(QFrame):
     themeRequested = Signal()
     licenseRequested = Signal()
 
+    COMPACT_WIDTH = 1040
+    FULL_SEARCH_PLACEHOLDER = "Search accounts, groups, members, campaigns…"
+
     PAGE_SUBTITLES = {
         "Dashboard": "Overview of accounts, groups, members, campaigns and system health.",
         "Operations": "Monitor runtime health, workers, queues, recovery and maintenance.",
@@ -40,17 +43,19 @@ class TopBar(QFrame):
     }
 
     def __init__(self, parent=None):
-        super().__init__(parent); self.setObjectName("topbar"); self._paused = False
+        super().__init__(parent); self.setObjectName("topbar"); self._paused = False; self._compact = False
+        self._network_status = "Unknown"; self._telegram_status = "Configuration Required"; self._database_connected = True
         layout = QHBoxLayout(self); layout.setContentsMargins(20, 9, 18, 9); layout.setSpacing(12)
         title_host=QWidget(); title_layout=QVBoxLayout(title_host); title_layout.setContentsMargins(0,0,0,0); title_layout.setSpacing(0)
+        self._title_host = title_host
         self.lbl_page_title = QLabel("Dashboard"); self.lbl_page_title.setObjectName("lbl_page_title")
         self.lbl_page_subtitle = QLabel(self.PAGE_SUBTITLES["Dashboard"]); self.lbl_page_subtitle.setObjectName("lbl_page_subtitle")
         title_layout.addWidget(self.lbl_page_title); title_layout.addWidget(self.lbl_page_subtitle); layout.addWidget(title_host)
         layout.addStretch(1)
 
-        search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(9,0,7,0); search_layout.setSpacing(6)
+        search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); self._search_frame = search_frame; search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(9,0,7,0); search_layout.setSpacing(6)
         search_icon=QLabel(); search_icon.setPixmap(IconManager.get("search").pixmap(16,16)); search_layout.addWidget(search_icon)
-        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText("Search accounts, groups, members, campaigns…"); self.le_global_search.setMinimumWidth(240); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
+        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText(self.FULL_SEARCH_PLACEHOLDER); self.le_global_search.setMinimumWidth(240); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
         self.lbl_search_shortcut=QLabel("Ctrl K"); self.lbl_search_shortcut.setObjectName("lbl_search_shortcut")
         search_layout.addWidget(self.le_global_search,1); search_layout.addWidget(self.lbl_search_shortcut); layout.addWidget(search_frame,2)
         self.btn_global_search = QPushButton("Search", self); self.btn_global_search.setObjectName("btn_global_search"); self.btn_global_search.hide(); self.btn_global_search.clicked.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
@@ -70,23 +75,47 @@ class TopBar(QFrame):
         self.set_network_status("Unknown"); self.set_telegram_status("Configuration Required"); self.set_database_connected(True)
 
     def set_page(self, title: str, subtitle: str | None = None):
-        self.lbl_page_title.setText(title); self.lbl_page_subtitle.setText(subtitle if subtitle is not None else self.PAGE_SUBTITLES.get(title,"")); self.lbl_page_subtitle.setVisible(bool(self.lbl_page_subtitle.text()))
+        self.lbl_page_title.setText(title); self.lbl_page_subtitle.setText(subtitle if subtitle is not None else self.PAGE_SUBTITLES.get(title,"")); self.lbl_page_subtitle.setVisible(not self._compact and bool(self.lbl_page_subtitle.text()))
+
+    def resizeEvent(self, event):  # noqa: N802 - Qt API name
+        super().resizeEvent(event)
+        self.set_compact(event.size().width() < self.COMPACT_WIDTH)
+
+    def set_compact(self, compact: bool) -> None:
+        compact = bool(compact)
+        if compact == self._compact:
+            return
+        self._compact = compact
+        self.lbl_page_subtitle.setVisible(not compact and bool(self.lbl_page_subtitle.text()))
+        self.lbl_search_shortcut.setVisible(not compact)
+        self.le_global_search.setMinimumWidth(160 if compact else 240)
+        self.le_global_search.setPlaceholderText("Search…" if compact else self.FULL_SEARCH_PLACEHOLDER)
+        self._render_status_text()
+
+    def _render_status_text(self) -> None:
+        network = self._network_status
+        telegram = self._telegram_status
+        database = "Connected" if self._database_connected else "Error"
+        self.lbl_internet_status.setText("NET  ●" if self._compact else f"NET  ●  {network}")
+        self.lbl_telegram_global_status.setText("TG  ●" if self._compact else f"TG  ●  {telegram}")
+        self.lbl_database.setText("DB  ●" if self._compact else f"DB  ●  {database}")
 
     @staticmethod
     def _chip_state(widget, state: str, tooltip: str):
         widget.setProperty("state", state); widget.setToolTip(tooltip); widget.style().unpolish(widget); widget.style().polish(widget)
 
     def set_database_connected(self, connected: bool):
-        label="Connected" if connected else "Error"
-        self.lbl_database.setText(f"DB  ●  {label}"); self._chip_state(self.lbl_database,"ok" if connected else "error", "Database\nConnected" if connected else "Database\nError")
+        self._database_connected = bool(connected)
+        self._render_status_text(); self._chip_state(self.lbl_database,"ok" if connected else "error", "Database\nConnected" if connected else "Database\nError")
 
     def set_network_status(self, status: str):
         normalized=str(status or "Unknown").title(); state={"Online":"ok","Offline":"error","Partial":"warning"}.get(normalized,"muted")
-        self.lbl_internet_status.setText(f"NET  ●  {normalized}"); self._chip_state(self.lbl_internet_status,state,f"Internet\n{normalized}")
+        self._network_status = normalized; self._render_status_text(); self._chip_state(self.lbl_internet_status,state,f"Internet\n{normalized}")
 
     def set_telegram_status(self, status: str):
-        state={"Ready":"ok","Connecting":"warning","Partial":"warning","Offline":"muted","No Accounts":"muted","Configuration Required":"warning"}.get(status,"muted")
-        self.lbl_telegram_global_status.setText(f"TG  ●  {status}"); self._chip_state(self.lbl_telegram_global_status,state,f"Telegram\n{status}")
+        normalized = str(status or "Unknown")
+        state={"Ready":"ok","Connecting":"warning","Partial":"warning","Offline":"muted","No Accounts":"muted","Configuration Required":"warning"}.get(normalized,"muted")
+        self._telegram_status = normalized; self._render_status_text(); self._chip_state(self.lbl_telegram_global_status,state,f"Telegram\n{normalized}")
 
 
     def set_license_status(self, plan: str | None, status: str, expires_at: str | None = None):

@@ -52,7 +52,7 @@ class OperationsPage(QWidget):
         wr=QHBoxLayout(); self.btn_worker_details=QPushButton("Worker Details"); self.btn_worker_details.setObjectName("btn_worker_details"); self.btn_restart_failed_worker=QPushButton("Restart Failed Worker"); self.btn_restart_failed_worker.setObjectName("btn_restart_failed_worker"); wr.addWidget(self.btn_worker_details); wr.addWidget(self.btn_restart_failed_worker); wr.addStretch(); workers.body.addLayout(wr); self.btn_worker_details.clicked.connect(self._worker_details); self.btn_restart_failed_worker.clicked.connect(self._restart_selected_worker); lower.addWidget(workers,3)
         performance=SectionCard("Performance"); performance.setMinimumWidth(300); self._perf_labels={}
         for key in ["CPU","Memory","Database","WAL","Active Jobs","Queue","Workers"]:
-            row=QHBoxLayout(); lab=QLabel(key); lab.setProperty("secondary",True); value=QLabel("—"); value.setStyleSheet("font-weight:650"); self._perf_labels[key]=value; row.addWidget(lab); row.addStretch(); row.addWidget(value); performance.body.addLayout(row)
+            row=QHBoxLayout(); lab=QLabel(key); lab.setProperty("secondary",True); value=QLabel("—"); value.setProperty("emphasis",True); self._perf_labels[key]=value; row.addWidget(lab); row.addStretch(); row.addWidget(value); performance.body.addLayout(row)
         lower.addWidget(performance,1); root.addLayout(lower,1)
 
         queue=SectionCard("Queues"); self.queue_model=BaseTableModel([], ["Queue","Pending","Running","Oldest Item"]); self.tbl_operations_queues=QTableView(); self.tbl_operations_queues.setObjectName("tbl_operations_queues"); self.tbl_operations_queues.setModel(self.queue_model)
@@ -133,4 +133,3 @@ class OperationsPage(QWidget):
         if not full_ops:
             self.btn_database_optimize.setToolTip("Core database maintenance remains available. Full Operations features require SP Telegram Ultimate.")
         return True
-

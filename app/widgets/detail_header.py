@@ -13,6 +13,6 @@ class DetailHeaderWidget(QFrame):
             self.lbl_avatar.set_entity(avatar_service, avatar_kind, avatar_id, name, peer_id=avatar_peer_id, account_id=avatar_account_id)
         else:
             self.lbl_avatar.set_entity(None, "", 0, name)
-        text=QVBoxLayout(); text.setContentsMargins(0,0,0,0); text.setSpacing(2); self.lbl_name=QLabel(name or "Unknown"); self.lbl_name.setStyleSheet("font-size:16px;font-weight:650"); self.lbl_subtitle=QLabel(subtitle or ""); self.lbl_subtitle.setProperty("muted",True); text.addWidget(self.lbl_name); text.addWidget(self.lbl_subtitle)
+        text=QVBoxLayout(); text.setContentsMargins(0,0,0,0); text.setSpacing(2); self.lbl_name=QLabel(name or "Unknown"); self.lbl_name.setProperty("detailTitle",True); self.lbl_subtitle=QLabel(subtitle or ""); self.lbl_subtitle.setProperty("muted",True); text.addWidget(self.lbl_name); text.addWidget(self.lbl_subtitle)
         root.addWidget(self.lbl_avatar); root.addLayout(text,1); self.badge=StatusBadge(status or "Unknown") if status else None
         if self.badge: root.addWidget(self.badge,0,Qt.AlignmentFlag.AlignVCenter)

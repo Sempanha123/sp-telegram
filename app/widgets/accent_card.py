@@ -51,7 +51,7 @@ class AccentCard(QFrame):
         root.addWidget(self.lbl_value)
 
         self.metrics_host = QWidget()
-        self.metrics_host.setStyleSheet("background:transparent;border:0;")
+        self.metrics_host.setProperty("transparentHost", True)
         self.metrics = QVBoxLayout(self.metrics_host)
         self.metrics.setContentsMargins(0, 0, 0, 0)
         self.metrics.setSpacing(5)

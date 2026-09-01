@@ -16,7 +16,7 @@ QFrame#sidebar {
     border-right: 0;
     border-radius: 0 12px 12px 0;
 }
-QFrame#topbar { background: #0E1628; border-bottom: 1px solid #24314A; }
+QFrame#topbar { background: #0E1628; border-bottom: 1px solid #24314A; min-height: 58px; }
 QFrame[card="true"], QFrame[sectionCard="true"], QGroupBox {
     background: #11182B;
     border: 1px solid #2B3855;
@@ -29,6 +29,8 @@ QGroupBox { margin-top: 14px; padding-top: 15px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 5px; color: #8B9BFF; }
 QLabel[muted="true"], QLabel#lbl_muted { color: #7F8BA6; }
 QLabel[secondary="true"] { color: #B7C1D9; }
+QLabel[filterLabel="true"] { font-size: 10px; font-weight: 650; }
+QLabel[emphasis="true"] { font-weight: 650; }
 QLabel#lbl_app_name {
     color: #FFFFFF;
     font-size: 16px;

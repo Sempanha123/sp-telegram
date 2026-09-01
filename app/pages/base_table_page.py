@@ -99,7 +99,7 @@ class BaseTablePage(QWidget):
         self.filter_boxes={}; self.filter_labels={}; self._filter_combos={}; self._active_filters={}
         for obj,column,values in filters or []:
             host=QWidget(); v=QVBoxLayout(host); v.setContentsMargins(0,0,0,0); v.setSpacing(3)
-            label=QLabel(column); label.setProperty("muted",True); label.setStyleSheet("font-size:10px;font-weight:650")
+            label=QLabel(column); label.setProperty("muted",True); label.setProperty("filterLabel",True)
             combo=QComboBox(); combo.setObjectName(obj); combo.addItems(["All",*values]); combo.setMinimumWidth(125); combo.currentTextChanged.connect(lambda value,c=column:self._on_filter(c,value))
             v.addWidget(label); v.addWidget(combo); self.filter_boxes[obj]=combo; self.filter_labels[obj]=label; self._filter_combos[column]=combo; setattr(self,obj,combo); filter_row.addWidget(host)
         self.btn_clear_filters=QPushButton("Clear Filters"); self.btn_clear_filters.setObjectName("btn_clear_filters"); self.btn_clear_filters.setProperty("role","ghost"); self.btn_clear_filters.setIcon(IconManager.get("close")); self.btn_clear_filters.setToolTip("Reset all filters to All"); self.btn_clear_filters.hide(); self.btn_clear_filters.clicked.connect(self.clear_filters); filter_row.addWidget(self.btn_clear_filters)

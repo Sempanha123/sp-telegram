@@ -30,6 +30,7 @@ QLabel#lbl_app_name {
 QLabel[navSection="true"] { color: rgba(210,222,255,175); font-size: 10px; font-weight: 700; padding: 14px 10px 5px 10px; }
 QPushButton[nav="true"] { min-height: 42px; text-align: left; background: transparent; border: 0; color: rgba(235,241,255,215); padding: 0 12px; border-radius: 9px; margin: 1px 3px; }
 QPushButton[nav="true"]:hover { background: rgba(255,255,255,24); color: #FFFFFF; }
+QPushButton[nav="true"]:focus { border: 1px solid rgba(255,255,255,150); }
 QPushButton[nav="true"]:checked { background: rgba(255,255,255,235); color: #3437A6; font-weight: 700; border-left: 3px solid #22C7D9; }
 QPushButton[nav="true"][collapsed="true"] { padding: 0; text-align: center; min-width: 44px; max-width: 44px; margin: 1px 2px; }
 QLabel#lbl_sidebar_badge { background: #FFFFFF; color: #4446B8; border-radius: 8px; min-width: 16px; padding: 1px 5px; font-size: 10px; font-weight: 700; }
@@ -50,7 +51,7 @@ QFrame#sidebar QScrollBar:vertical { background: transparent; }
 QFrame#sidebar QScrollBar::handle:vertical { background: rgba(255,255,255,90); border-radius: 4px; }
 
 /* ---------- Topbar ---------- */
-QFrame#topbar { background: #FFFFFF; border-bottom: 1px solid #DDE3EE; }
+QFrame#topbar { background: #FFFFFF; border-bottom: 1px solid #DDE3EE; min-height: 58px; }
 QFrame#global_search_frame { background: #F1F4FA; border: 1px solid #DDE3EE; border-radius: 10px; }
 QLineEdit#le_global_search { background: transparent; border: 0; min-height: 36px; padding-left: 2px; }
 QLabel#lbl_search_shortcut { color: #8491A9; background: #FFFFFF; border: 1px solid #C5CDDC; border-radius: 5px; padding: 2px 6px; font-size: 10px; }
@@ -101,6 +102,8 @@ QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 5px; color:
 /* ---------- Labels ---------- */
 QLabel[muted="true"], QLabel#lbl_muted { color: #8491A9; }
 QLabel[secondary="true"] { color: #56627A; }
+QLabel[filterLabel="true"] { font-size: 10px; font-weight: 650; }
+QLabel[emphasis="true"] { font-weight: 650; }
 QLabel#lbl_page_title { color: #172033; font-size: 16px; font-weight: 700; }
 QLabel#lbl_page_subtitle { color: #8491A9; font-size: 12px; }
 QLabel#lbl_stat_value { font-size: 27px; font-weight: 700; color: #172033; }
@@ -174,8 +177,12 @@ QPushButton[danger="true"]:hover, QPushButton[role="danger"]:hover {
     background: #FDE7ED;
     border-color: #E11D48;
 }
+QPushButton:focus { border: 1px solid #5B5CE2; }
+QPushButton[primary="true"]:focus, QPushButton[role="primary"]:focus { border-color: #A5B4FC; }
+QPushButton[danger="true"]:focus, QPushButton[role="danger"]:focus { border-color: #E11D48; }
 QPushButton[role="ghost"] { background: transparent; border-color: transparent; color: #56627A; }
 QPushButton[role="ghost"]:hover { background: #E9E7FD; color: #172033; }
+QPushButton[role="ghost"]:focus { background: #F2F4FF; border-color: #5B5CE2; }
 QPushButton[iconButton="true"] { min-width: 34px; max-width: 34px; min-height: 34px; max-height: 34px; padding: 0; }
 QPushButton#btn_emergency_pause { min-width: 96px; background: #FFFFFF; border-color: #C5CDDC; color: #56627A; }
 QPushButton#btn_emergency_pause[paused="true"] { background: #FEF3E1; border-color: #FCE2B8; color: #B45309; }
@@ -225,6 +232,7 @@ QTableView {
 QTableView:hover {
     border-color: #C5CDDC;
 }
+QTableView:focus { border-color: #5B5CE2; }
 QTableView::item { border: 0; border-bottom: 1px solid #F1F4F9; padding: 0 12px; }
 QTableView::item:hover { background: #F2F4FF; }
 QTableView::item:selected { background: #E7E9FF; color: #172033; }
@@ -303,8 +311,11 @@ QLabel[summaryMetric="true"] {
     color: #8491A9;
     font-size: 12px;
 }
-QFrame[systemBanner="true"] { background: #DFF7FB; border: 1px solid #B8EBF3; border-radius: 10px; }
+QFrame[systemBanner="true"] { background: #E8F7FA; border: 1px solid #B8E5EC; border-radius: 10px; }
 QLabel[systemBannerText="true"] { font-weight: 650; color: #0E7490; }
+QFrame[systemBanner="true"][state="attention"] { background: #FFF6E5; border-color: #F5D38A; }
+QFrame[systemBanner="true"][state="attention"] QLabel[systemBannerText="true"] { color: #A85A05; }
+QPushButton#btn_dashboard_review_attention { min-height: 28px; padding: 0 9px; color: #A85A05; }
 QFrame#account_pool_summary { background: #E9E7FD; border: 1px solid #D8D4F9; border-radius: 12px; }
 QLabel[summaryValueSmall="true"] { font-size: 15px; font-weight: 750; color: #4446B8; }
 QLabel[summaryValueSmall="true"][tone="success"] { color: #0B9D6C; }
@@ -399,7 +410,8 @@ QLabel[planBadge="true"] { background: #E9E7FD; color: #4446B8; border: 1px soli
 QFrame[pricingCard="true"] { background: #FFFFFF; border: 1px solid #DDE3EE; border-radius: 12px; }
 QFrame[pricingCard="true"]:hover { border-color: #5B5CE2; }
 QFrame[lockedFeature="true"] { background: #F6F8FD; border: 1px solid #DDE3EE; border-radius: 12px; }
-QLabel[lockedTitle="true"], QLabel[sectionTitle="true"] { font-size: 16px; font-weight: 650; color: #172033; }
+QLabel[lockedTitle="true"], QLabel[sectionTitle="true"], QLabel[detailTitle="true"] { font-size: 16px; font-weight: 650; color: #172033; }
+QLabel#lbl_loading_message { font-size: 14px; font-weight: 650; }
 
 QPushButton#btn_license_status { min-height: 30px; padding: 0 9px; border-radius: 7px; background: #EEF2FA; border: 1px solid #DDE3EE; color: #56627A; font-size: 10px; font-weight: 700; }
 QPushButton#btn_license_status[state="ok"] { color: #0B9D6C; border-color: #C6EEDA; background: #E3F8EF; }
@@ -408,7 +420,7 @@ QPushButton#btn_license_status[state="error"] { color: #E11D48; border-color: #F
 
 /* ---------- Production polish ---------- */
 QLabel { background: transparent; }
-QWidget#summary_metrics_host { background: transparent; }
+QWidget#summary_metrics_host, QWidget[transparentHost="true"] { background: transparent; border: 0; }
 QWidget[metricTile="true"] { background: #FFFFFF; border: 1px solid #DDE3EE; border-radius: 8px; }
 QLabel[metricValue="true"] { font-size: 18px; font-weight: 700; color: #172033; }
 QLabel#lbl_summary_icon { color: #8491A9; }

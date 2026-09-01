@@ -41,8 +41,10 @@ class DashboardPage(QWidget):
         for btn,text in self._secondary_quick: menu.addAction(text,btn.click)
         self.btn_dashboard_quick_actions.setMenu(menu)
 
-        self.banner=QFrame(); self.banner.setProperty("systemBanner",True); bl=QHBoxLayout(self.banner); bl.setContentsMargins(12,8,12,8)
-        self.lbl_system_banner=QLabel("●  All Systems Operational"); self.lbl_system_banner.setObjectName("lbl_dashboard_system_banner"); self.lbl_system_banner.setProperty("systemBannerText",True); bl.addWidget(self.lbl_system_banner); bl.addStretch(); root.addWidget(self.banner)
+        self.banner=QFrame(); self.banner.setProperty("systemBanner",True); self.banner.setProperty("state","ok"); bl=QHBoxLayout(self.banner); bl.setContentsMargins(12,8,12,8)
+        self.lbl_system_banner=QLabel("●  All Systems Operational"); self.lbl_system_banner.setObjectName("lbl_dashboard_system_banner"); self.lbl_system_banner.setProperty("systemBannerText",True); bl.addWidget(self.lbl_system_banner); bl.addStretch()
+        self.btn_review_attention=QPushButton("Review"); self.btn_review_attention.setObjectName("btn_dashboard_review_attention"); self.btn_review_attention.setProperty("role","ghost"); self.btn_review_attention.setIcon(IconManager.get("arrow_right")); self.btn_review_attention.hide(); self.btn_review_attention.clicked.connect(self._review_attention); bl.addWidget(self.btn_review_attention); root.addWidget(self.banner)
+        self._attention_target="account_health"
 
         # Colorful accent metric cards.
         cards = QGridLayout()
@@ -61,7 +63,7 @@ class DashboardPage(QWidget):
         lower=QHBoxLayout(); lower.setSpacing(12)
         self.health_section=SectionCard("Account Health","View All"); self.health_section.btn_action.clicked.connect(lambda:self.quickAction.emit("account_health")); self._health_rows={}
         for key,label,tone in (("healthy","Healthy","success"),("cooldown","Cooldown","warning"),("restricted","Restricted","danger"),("offline","Offline","muted")):
-            host=QWidget(); host.setStyleSheet("background:transparent"); row=QHBoxLayout(host); row.setContentsMargins(0,2,0,2); row.setSpacing(10)
+            host=QWidget(); host.setProperty("transparentHost",True); row=QHBoxLayout(host); row.setContentsMargins(0,2,0,2); row.setSpacing(10)
             name=QLabel(label); name.setMinimumWidth(78); name.setProperty("secondary",True)
             bar=QProgressBar(); bar.setRange(0,100); bar.setValue(0); bar.setTextVisible(False); bar.setProperty("tone",tone)
             value=QLabel("0"); value.setFixedWidth(48); value.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
@@ -95,6 +97,17 @@ class DashboardPage(QWidget):
         self.lbl_health_empty.setVisible(total==0)
         for key,(host,bar,value) in self._health_rows.items():
             count=max(0,int(a.get(key,0))); host.setVisible(total>0); value.setText(f"{count:,}"); bar.setValue(round(count*100/total) if total else 0)
-        attention=int(alerts.get("critical",0))+int(a.get("restricted",0))+int(a.get("offline",0)); self.lbl_system_banner.setText("●  All Systems Operational" if attention==0 else f"●  Attention Required   {attention} item{'s' if attention!=1 else ''} need review")
+        attention=int(alerts.get("critical",0))+int(a.get("restricted",0))+int(a.get("offline",0))
+        self.lbl_system_banner.setText("●  All Systems Operational" if attention==0 else f"●  Attention Required   {attention} item{'s' if attention!=1 else ''} need review")
+        self._attention_target="alerts" if int(alerts.get("critical",0)) else "account_health"
+        self.btn_review_attention.setVisible(attention>0)
+        state="attention" if attention else "ok"
+        if self.banner.property("state") != state:
+            self.banner.setProperty("state",state)
+            for widget in (self.banner,self.lbl_system_banner,self.btn_review_attention):
+                widget.style().unpolish(widget); widget.style().polish(widget)
+
+    def _review_attention(self):
+        self.quickAction.emit(self._attention_target)
 
     def refresh(self): self.set_summary(self.controller.refresh())

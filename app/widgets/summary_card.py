@@ -19,7 +19,7 @@ class SummaryCard(QFrame):
         self.lbl_title=QLabel(title.upper()); self.lbl_title.setProperty("summaryLabel",True)
         head.addWidget(icon); head.addWidget(self.lbl_title); head.addStretch(); root.addLayout(head)
         self.lbl_value=QLabel(str(value)); self.lbl_value.setProperty("summaryValue",True); root.addWidget(self.lbl_value)
-        self.metrics_host=QWidget(); self.metrics_host.setObjectName("summary_metrics_host"); self.metrics_host.setStyleSheet("background:transparent;border:0;")
+        self.metrics_host=QWidget(); self.metrics_host.setObjectName("summary_metrics_host"); self.metrics_host.setProperty("transparentHost",True)
         self.metrics=QVBoxLayout(self.metrics_host); self.metrics.setContentsMargins(0,0,0,0); self.metrics.setSpacing(5); root.addWidget(self.metrics_host)
         self._metric_labels:dict[str,QLabel]={}
 
