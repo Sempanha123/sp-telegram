@@ -1,0 +1,4 @@
+-r requirements.txt
+-r license_server/requirements.txt
+
+pytest>=8,<10

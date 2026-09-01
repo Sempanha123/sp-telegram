@@ -1,0 +1,27 @@
+{
+  "language_name": "English",
+  "pages": {
+    "dashboard": ["Dashboard", "Overview of accounts, groups, members, campaigns and system health."],
+    "operations": ["Operations", "Monitor runtime health, workers, queues, recovery and maintenance."],
+    "accounts": ["Accounts", "Manage authorized Telegram accounts and local operational state."],
+    "account_health": ["Health Center", "Review account connectivity, authorization and local health checks."],
+    "restrictions": ["Restrictions", "Track known restrictions and required operator actions."],
+    "sessions": ["Sessions", "Review authorized Telegram sessions for connected accounts."],
+    "groups": ["All Groups", "Manage saved Telegram groups, mappings and permissions."],
+    "source_groups": ["Source Groups", "Authorized source groups available to member synchronization."],
+    "target_groups": ["Target Groups", "Managed target groups and known membership state."],
+    "members": ["Member Pool", "Manage member records, eligibility, tags and exclusions."],
+    "collector": ["Collector", "Synchronize accessible members from authorized source groups."],
+    "blacklist": ["Blacklist", "Manage global, target-specific and Do Not Contact exclusions."],
+    "campaigns": ["Campaigns", "Create and manage authorized managed-group campaigns."],
+    "scheduler": ["Scheduler", "Manage local and Telegram-native scheduled group posts."],
+    "templates": ["Templates", "Reusable campaign content and schedule defaults."],
+    "jobs": ["Jobs", "Track persistent operational jobs and recovery state."],
+    "analytics": ["Analytics", "Review local operational and campaign metrics."],
+    "alerts": ["Alerts", "Review incidents, warnings and operator-action items."],
+    "logs": ["Logs", "Monitor application, Telegram, error and audit activity."],
+    "license": ["License", "Manage your SP Telegram subscription and activated devices."],
+    "settings": ["Settings", "Configure application behavior, monitoring, security and appearance."]
+  },
+  "text": {}
+}
