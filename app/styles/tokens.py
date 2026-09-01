@@ -97,34 +97,48 @@ PAGE_PADDING = 20
 TABLE_HEADER_HEIGHT = 40
 TABLE_ROW_HEIGHT = 36
 
-# Status badge palettes: ``(background, foreground)``.  Keys are normalized to
-# lowercase by both StatusBadge and ModernTableDelegate.
-STATUS_COLORS = {
-    **{key: ("#10382F", "#6EE7B7") for key in (
+# Status badge palettes: ``(background, foreground)``. Keys are normalized to
+# lowercase by StatusBadge and ModernTableDelegate. Keep the semantic tone map
+# separate so QSS-backed badges can adapt immediately when the theme changes.
+STATUS_TONE_KEYS = {
+    "success": (
         "ok", "active", "connected", "healthy", "success", "completed", "ready", "enabled", "online",
-    )},
-    **{key: ("#3B2E12", "#FCD34D") for key in (
-        "warning", "pending", "queued", "partial", "connecting", "paused", "trial",
-    )},
-    **{key: ("#3D1E2A", "#FDA4AF") for key in (
-        "error", "failed", "restricted", "expired", "suspended", "invalid", "blocked",
-    )},
-    **{key: ("#1C263A", "#9AA7C0") for key in (
+        "normal", "authorized", "available", "verified", "eligible",
+    ),
+    "warning": (
+        "warning", "pending", "queued", "partial", "connecting", "paused", "trial", "cooldown", "watch",
+        "daily limited", "login required", "recovering", "validating", "flood wait", "spam limited",
+    ),
+    "danger": (
+        "error", "failed", "restricted", "expired", "suspended", "invalid", "blocked", "critical",
+        "session invalid", "do not contact", "safety blocked", "cancelled", "interrupted",
+    ),
+    "info": ("running", "scheduled", "in progress", "processing"),
+    "muted": (
         "muted", "idle", "disabled", "offline", "unknown", "draft", "no accounts", "configuration required",
-    )},
+    ),
+}
+STATUS_TONE_BY_KEY = {
+    key: tone for tone, keys in STATUS_TONE_KEYS.items() for key in keys
 }
 
+_DARK_STATUS_TONES = {
+    "success": ("#10382F", "#6EE7B7"),
+    "warning": ("#3B2E12", "#FCD34D"),
+    "danger": ("#3D1E2A", "#FDA4AF"),
+    "info": ("#132D42", "#7DD3FC"),
+    "muted": ("#1C263A", "#9AA7C0"),
+}
+_LIGHT_STATUS_TONES = {
+    "success": ("#E7F8F1", "#047857"),
+    "warning": ("#FFF6E5", "#B45309"),
+    "danger": ("#FDECEF", "#BE123C"),
+    "info": ("#E6F2FF", "#0369A1"),
+    "muted": ("#EEF2F7", "#64748B"),
+}
+STATUS_COLORS = {
+    key: _DARK_STATUS_TONES[tone] for key, tone in STATUS_TONE_BY_KEY.items()
+}
 LIGHT_STATUS_COLORS = {
-    **{key: ("#E7F8F1", "#047857") for key in (
-        "ok", "active", "connected", "healthy", "success", "completed", "ready", "enabled", "online",
-    )},
-    **{key: ("#FFF6E5", "#B45309") for key in (
-        "warning", "pending", "queued", "partial", "connecting", "paused", "trial",
-    )},
-    **{key: ("#FDECEF", "#BE123C") for key in (
-        "error", "failed", "restricted", "expired", "suspended", "invalid", "blocked",
-    )},
-    **{key: ("#EEF2F7", "#64748B") for key in (
-        "muted", "idle", "disabled", "offline", "unknown", "draft", "no accounts", "configuration required",
-    )},
+    key: _LIGHT_STATUS_TONES[tone] for key, tone in STATUS_TONE_BY_KEY.items()
 }

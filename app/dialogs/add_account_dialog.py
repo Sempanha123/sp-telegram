@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QButtonGroup, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QRadioButton, QStackedWidget, QTextEdit,
@@ -104,11 +104,11 @@ class AddAccountDialog(QDialog):
         root = QVBoxLayout(self)
         self.lbl_login_progress = QLabel("1 Account   •   2 Verify   •   3 Security   •   4 Complete")
         self.lbl_login_progress.setObjectName("lbl_login_progress")
-        self.lbl_login_progress.setStyleSheet("font-weight:700")
+        self.lbl_login_progress.setProperty("emphasis", True)
         root.addWidget(self.lbl_login_progress)
         self.lbl_login_error = QLabel("")
         self.lbl_login_error.setWordWrap(True)
-        self.lbl_login_error.setStyleSheet("color:#ff9daf")
+        self.lbl_login_error.setProperty("tone", "danger")
         root.addWidget(self.lbl_login_error)
         self.stack_login = QStackedWidget()
         self.stack_login.setObjectName("stack_login")
@@ -131,12 +131,18 @@ class AddAccountDialog(QDialog):
 
     def _title(self, layout, title, text):
         label = QLabel(title)
-        label.setStyleSheet("font-size:20px;font-weight:700")
+        label.setProperty("dialogTitleLarge", True)
         layout.addWidget(label)
         note = QLabel(text)
         note.setWordWrap(True)
         note.setProperty("muted", True)
         layout.addWidget(note)
+
+    def _set_login_feedback(self, text: str, tone: str) -> None:
+        self.lbl_login_error.setProperty("tone", tone)
+        self.lbl_login_error.setText(text)
+        self.lbl_login_error.style().unpolish(self.lbl_login_error)
+        self.lbl_login_error.style().polish(self.lbl_login_error)
 
     def _build_method_page(self):
         page, layout = self._page()
@@ -260,7 +266,7 @@ class AddAccountDialog(QDialog):
         self.lbl_qr_login_image = QLabel("Generating QR…")
         self.lbl_qr_login_image.setObjectName("lbl_qr_login_image")
         self.lbl_qr_login_image.setMinimumSize(280, 280)
-        self.lbl_qr_login_image.setStyleSheet("qproperty-alignment: AlignCenter")
+        self.lbl_qr_login_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_qr_login_image, 0)
         self.lbl_qr_login_status = QLabel("Waiting for confirmation…")
         self.lbl_qr_login_status.setObjectName("lbl_qr_login_status")
@@ -371,8 +377,7 @@ class AddAccountDialog(QDialog):
         self.btn_verify_login_code.setEnabled(True)
         self.btn_resend_login_code.setEnabled(True)
         self.stack_login.setCurrentIndex(self.VERIFY)
-        self.lbl_login_error.setStyleSheet("color:#0E9F6E")
-        self.lbl_login_error.setText("Verification code sent.")
+        self._set_login_feedback("Verification code sent.", "success")
 
     def _password_required(self, account_id: int):
         self._login_account_id = account_id
@@ -403,8 +408,7 @@ class AddAccountDialog(QDialog):
             # Cancellation raced with a failure; the temporary account is gone.
             self._finish_cancel()
             return
-        self.lbl_login_error.setStyleSheet("color:#D92D4A")
-        self.lbl_login_error.setText(message)
+        self._set_login_feedback(message, "danger")
         self.btn_send_login_code.setEnabled(True)
         self.btn_send_login_code.setText("Send Login Code")
         self.btn_verify_login_code.setEnabled(True)
@@ -451,8 +455,7 @@ class AddAccountDialog(QDialog):
             self._begin_cancel(account_id)
             return
         if state in {"CONNECTING", "VERIFYING_CODE", "VERIFYING_PASSWORD", "QR_GENERATING"}:
-            self.lbl_login_error.setStyleSheet("color:#1D4ED8")
-            self.lbl_login_error.setText(state.replace("_", " ").title() + "…")
+            self._set_login_feedback(state.replace("_", " ").title() + "…", "info")
 
     def _login_cancelled(self, account_id: int):
         if self._cancelling:
@@ -460,8 +463,7 @@ class AddAccountDialog(QDialog):
 
     def _show_cancelling(self):
         self._cancelling = True
-        self.lbl_login_error.setStyleSheet("color:#B45309")
-        self.lbl_login_error.setText("Cancelling login…")
+        self._set_login_feedback("Cancelling login…", "warning")
         for button in self.findChildren(QPushButton):
             button.setEnabled(False)
 

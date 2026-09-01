@@ -96,8 +96,8 @@ class AccountPoolPage(BaseTablePage):
             ("daily_limited", "Daily Limited"), ("posting_available", "Posting Available"), ("invite_available", "Invite Available"),
         ]
         for index, (key, text) in enumerate(specs):
-            box = QWidget(); layout = QHBoxLayout(box); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
-            label = QLabel(text); label.setProperty("muted", True)
+            box = QWidget(); box.setProperty("accountSummaryItem", True); layout = QHBoxLayout(box); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
+            label = QLabel(text); label.setProperty("accountSummaryLabel", True)
             value = QLabel("0"); value.setObjectName(f"lbl_account_pool_{key}"); value.setProperty("summaryValueSmall", True)
             value.setProperty("tone", {"healthy":"success","enabled":"primary","posting_available":"purple","invite_available":"primary","watch":"warning","cooldown":"warning","recovering":"danger","restricted":"danger","daily_limited":"danger","offline":"muted","login_required":"warning"}.get(key,"default"))
             layout.addWidget(label); layout.addWidget(value); layout.addStretch(); grid.addWidget(box, index // 7, index % 7)

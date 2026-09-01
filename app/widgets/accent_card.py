@@ -35,7 +35,7 @@ class AccentCard(QFrame):
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(8)
         icon = QLabel()
-        icon.setPixmap(IconManager.get(self.ICONS.get(icon_name or title.lower(), "dashboard")).pixmap(16, 16))
+        IconManager.bind_label(icon, self.ICONS.get(icon_name or title.lower(), "dashboard"), 16)
         icon.setFixedSize(18, 18)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_title = QLabel(title.upper())

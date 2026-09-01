@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QSettings
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.application_context import ApplicationContext
@@ -43,7 +43,10 @@ def main() -> int:
     migrate_legacy_qsettings()
     app.setApplicationDisplayName(APP_NAME)
     app.setStyle("Fusion")
-    apply_theme(app, "light")
+    # Apply the persisted theme before constructing widgets. Creating the full
+    # window in light mode and changing it afterwards left cached icons and
+    # custom-painted controls with the wrong palette.
+    apply_theme(app, str(QSettings().value("ui/theme", "light")))
 
     try:
         context = ApplicationContext(project_root)

@@ -29,7 +29,7 @@ class BulkAccountProgressDialog(QDialog):
 
         root = QVBoxLayout(self)
         title = QLabel(f"{operation_name} Accounts")
-        title.setStyleSheet("font-size:18px;font-weight:700")
+        title.setProperty("dialogTitle", True)
         root.addWidget(title)
 
         self.progress_bulk_accounts = QProgressBar()

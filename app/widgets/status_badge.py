@@ -3,8 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QLabel, QSizePolicy
 
-from app.styles.tokens import LIGHT_STATUS_COLORS, STATUS_COLORS
-from app.theme_state import is_light
+from app.styles.tokens import STATUS_TONE_BY_KEY
 
 
 class StatusBadge(QLabel):
@@ -26,6 +25,7 @@ class StatusBadge(QLabel):
     def __init__(self, state: str = "Idle", parent=None):
         super().__init__(parent)
         self._display = ""
+        self.setProperty("statusBadge", True)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         self.setMinimumHeight(self.MIN_HEIGHT)
@@ -35,20 +35,9 @@ class StatusBadge(QLabel):
         display = str(state or "Unknown").replace("_", " ").title()
         self._display = display
         key = display.lower()
-        # Badges are painted inline rather than via QSS, so they must resolve the
-        # palette for the active theme themselves.  Without this the dark palette
-        # leaked into the soft-light UI as muddy dark-on-light pills.
-        if is_light():
-            bg, fg = LIGHT_STATUS_COLORS.get(key, ("#EEF2F7", "#64748B"))
-        else:
-            bg, fg = STATUS_COLORS.get(key, ("#1C263A", "#9AA7C0"))
         self.setText(f"●  {display}")
-        self.setStyleSheet(
-            "QLabel{"
-            f"background:{bg};color:{fg};border-radius:8px;"
-            "padding:4px 10px;font-weight:600;"
-            "}"
-        )
+        self.setProperty("tone", STATUS_TONE_BY_KEY.get(key, "muted"))
+        self.style().unpolish(self); self.style().polish(self)
         self.updateGeometry()
 
     def _content_size(self) -> QSize:

@@ -7,10 +7,10 @@ from app.dialogs.dialog_compat import *
 class AppLockDialog(QDialog):
     def __init__(self, app_lock_service, parent=None) -> None:
         super().__init__(parent); self.service = app_lock_service; self.setWindowTitle("SP Telegram Locked"); self.setModal(True); self.resize(430, 220)
-        root = QVBoxLayout(self); title = QLabel("SP Telegram is locked"); title.setStyleSheet("font-size:18px;font-weight:700"); root.addWidget(title)
+        root = QVBoxLayout(self); title = QLabel("SP Telegram is locked"); title.setProperty("dialogTitle", True); root.addWidget(title)
         info = QLabel("Enter the local application-lock password to restore access. Telegram sessions remain connected unless you explicitly disconnect them."); info.setWordWrap(True); root.addWidget(info)
         form = QFormLayout(); self.le_password = QLineEdit(); self.le_password.setEchoMode(QLineEdit.EchoMode.Password); form.addRow("Password", self.le_password); root.addLayout(form)
-        self.lbl_error = QLabel(""); self.lbl_error.setStyleSheet("color:#ff9daf"); root.addWidget(self.lbl_error)
+        self.lbl_error = QLabel(""); self.lbl_error.setProperty("tone", "danger"); root.addWidget(self.lbl_error)
         button = QPushButton("Unlock"); button.setProperty("primary", True); button.clicked.connect(self._unlock); root.addWidget(button)
         self.le_password.returnPressed.connect(self._unlock)
 

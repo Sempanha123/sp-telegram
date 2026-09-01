@@ -8,7 +8,7 @@ class LockedFeatureWidget(QFrame):
     def __init__(self,title='Feature Locked',description='',required_plan='PRO',feature_list=None,parent=None):
         super().__init__(parent);self.setObjectName('locked_feature_widget');self.setProperty('lockedFeature',True);self.required_plan=required_plan
         root=QVBoxLayout(self);root.setContentsMargins(28,28,28,28);root.setSpacing(12);root.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon=QLabel();icon.setPixmap(IconManager.get('lock').pixmap(30,30));icon.setAlignment(Qt.AlignmentFlag.AlignCenter);root.addWidget(icon)
+        icon=QLabel();IconManager.bind_label(icon,'lock',30);icon.setAlignment(Qt.AlignmentFlag.AlignCenter);root.addWidget(icon)
         row=QHBoxLayout();row.addStretch();name=QLabel(title);name.setProperty('lockedTitle',True);row.addWidget(name);row.addWidget(PlanBadge(required_plan));row.addStretch();root.addLayout(row)
         desc=QLabel(description);desc.setWordWrap(True);desc.setAlignment(Qt.AlignmentFlag.AlignCenter);desc.setProperty('secondary',True);desc.setMaximumWidth(520);root.addWidget(desc)
         if feature_list:

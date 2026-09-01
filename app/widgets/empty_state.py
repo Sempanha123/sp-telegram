@@ -7,7 +7,7 @@ class EmptyState(QFrame):
     def __init__(self,title:str,description:str,action:str="",parent=None,icon_name:str="info"):
         super().__init__(parent); self.setObjectName("empty_state"); self.setMaximumHeight(250); self.setMinimumHeight(150)
         layout=QVBoxLayout(self); layout.setContentsMargins(24,22,24,22); layout.setSpacing(7); layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_icon=QLabel(); self.lbl_icon.setObjectName("lbl_empty_icon"); self.lbl_icon.setPixmap(IconManager.get(icon_name).pixmap(24,24)); self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_icon=QLabel(); self.lbl_icon.setObjectName("lbl_empty_icon"); IconManager.bind_label(self.lbl_icon,icon_name,24); self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_title=QLabel(title); self.lbl_title.setObjectName("lbl_empty_title"); self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_description=QLabel(description); self.lbl_description.setObjectName("lbl_empty_description"); self.lbl_description.setAlignment(Qt.AlignmentFlag.AlignCenter); self.lbl_description.setWordWrap(True); self.lbl_description.setMaximumWidth(480)
         layout.addWidget(self.lbl_icon); layout.addWidget(self.lbl_title); layout.addWidget(self.lbl_description)

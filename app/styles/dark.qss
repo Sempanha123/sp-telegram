@@ -11,10 +11,9 @@
 QMainWindow, QWidget { background: #0B1020; color: #F5F7FF; }
 QWidget#central_root { background: #0B1020; }
 QFrame#sidebar {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #111A35, stop:0.52 #1C2C56, stop:1 #12475E);
-    border-right: 0;
-    border-radius: 0 12px 12px 0;
+    background: #0E1628;
+    border-right: 1px solid #24314A;
+    border-radius: 0;
 }
 QFrame#topbar { background: #0E1628; border-bottom: 1px solid #24314A; min-height: 58px; }
 QFrame[card="true"], QFrame[sectionCard="true"], QGroupBox {

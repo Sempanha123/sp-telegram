@@ -18,7 +18,7 @@ class CreateCampaignDialog(QDialog):
     STEPS=['General','Target Groups','Posting Accounts','Content','Schedule','Preview','Preflight']
     def __init__(self,targets:list[dict],accounts:list,parent=None,campaign=None,details=None,smart_planner=None):
         super().__init__(parent);self.setWindowTitle('Create Campaign');self.resize(960,720);self._table_layout=TableLayoutManager(self);self.targets=targets;self.accounts=accounts;self.messages=[];self._campaign=campaign;self._details=details or {};self._finish_mode='finish';self.smart_planner=smart_planner;self._last_smart_plan={}
-        root=QVBoxLayout(self);self.lbl_step=QLabel();self.lbl_step.setStyleSheet('font-size:18px;font-weight:700');root.addWidget(self.lbl_step)
+        root=QVBoxLayout(self);self.lbl_step=QLabel();self.lbl_step.setProperty('dialogTitle',True);root.addWidget(self.lbl_step)
         # UX-008: step indicator — numbered dots show progress through the wizard.
         self._step_dots=[]; step_row=QHBoxLayout(); step_row.setSpacing(6)
         for i,name in enumerate(self.STEPS):

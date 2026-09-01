@@ -6,6 +6,8 @@ from typing import Any
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 
+from app.theme_state import is_light
+
 
 class BaseTableModel(QAbstractTableModel):
     def __init__(self, rows: list[Any], columns: list[str], parent=None):
@@ -86,16 +88,23 @@ class BaseTableModel(QAbstractTableModel):
             return item
         if role == Qt.ItemDataRole.ForegroundRole:
             text = str(value).replace("_", " ").title()
+            colors = {
+                "success": "#047857" if is_light() else "#6EE7B7",
+                "warning": "#B45309" if is_light() else "#FCD34D",
+                "danger": "#BE123C" if is_light() else "#FDA4AF",
+                "purple": "#6D28D9" if is_light() else "#C4B5FD",
+                "info": "#0369A1" if is_light() else "#7DD3FC",
+            }
             if text in {"Healthy", "Connected", "Ready", "Completed", "Success", "Eligible", "Normal"}:
-                return QColor("#6ee7a3")
+                return QColor(colors["success"])
             if text in {"Cooldown", "Warning", "Paused", "Validating", "Unknown", "Watch", "Daily Limited"}:
-                return QColor("#ffc56b")
+                return QColor(colors["warning"])
             if text in {"Restricted", "Failed", "Critical", "Session Invalid", "Do Not Contact", "Recovering", "Disabled", "Safety Blocked"}:
-                return QColor("#ff9daf")
+                return QColor(colors["danger"])
             if text == "Scheduled":
-                return QColor("#c5a7ff")
+                return QColor(colors["purple"])
             if text == "Running":
-                return QColor("#83c7ff")
+                return QColor(colors["info"])
         if role == Qt.ItemDataRole.TextAlignmentRole and isinstance(value, (int, float)):
             return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         return None

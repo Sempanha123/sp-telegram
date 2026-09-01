@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.theme import apply_theme, load_stylesheet
+from app.theme import apply_theme, build_palette, load_stylesheet
 
 
 STYLES_DIR = Path(__file__).resolve().parents[1] / "app" / "styles"
@@ -26,6 +26,8 @@ def test_theme_is_complete_and_qt_compatible(theme: str) -> None:
     assert "QTableView" in stylesheet
     assert "QPushButton:focus" in stylesheet
     assert "QTableView:focus" in stylesheet
+    assert "QLabel[statusBadge=\"true\"]" in stylesheet
+    assert "QWidget[accountSummaryItem=\"true\"]" in stylesheet
     assert stylesheet.count("{") == stylesheet.count("}")
     assert not UNSUPPORTED_QSS.search(stylesheet)
 
@@ -35,6 +37,18 @@ def test_apply_theme_installs_the_full_stylesheet(qapp, theme: str) -> None:
     apply_theme(qapp, theme)
 
     assert qapp.styleSheet() == load_stylesheet(theme)
+
+
+@pytest.mark.parametrize(
+    ("theme", "text", "surface"),
+    [("light", "#172033", "#ffffff"), ("dark", "#f5f7ff", "#11182b")],
+)
+def test_native_palette_matches_theme(theme: str, text: str, surface: str) -> None:
+    from PySide6.QtGui import QPalette
+
+    palette = build_palette(theme)
+    assert palette.color(QPalette.ColorRole.Text).name() == text
+    assert palette.color(QPalette.ColorRole.Base).name() == surface
 
 
 def test_theme_files_are_not_accidentally_empty() -> None:
@@ -100,3 +114,37 @@ def test_dashboard_attention_banner_routes_to_the_relevant_page(qapp) -> None:
     page.set_summary({})
     assert page.banner.property("state") == "ok"
     assert page.btn_review_attention.isHidden()
+
+
+def test_status_badge_uses_theme_driven_properties(qapp) -> None:
+    from app.widgets.status_badge import StatusBadge
+
+    badge = StatusBadge("Healthy")
+    assert badge.property("statusBadge") is True
+    assert badge.property("tone") == "success"
+    assert badge.styleSheet() == ""
+
+    badge.set_state("Running")
+    assert badge.property("tone") == "info"
+
+
+def test_svg_icons_follow_the_application_palette(qapp) -> None:
+    from app.icons import IconManager
+
+    def average_lightness(pixmap) -> float:
+        image = pixmap.toImage()
+        values = [
+            image.pixelColor(x, y).lightness()
+            for y in range(image.height())
+            for x in range(image.width())
+            if image.pixelColor(x, y).alpha() > 16
+        ]
+        return sum(values) / len(values)
+
+    apply_theme(qapp, "light")
+    icon = IconManager.get("dashboard")
+    light_value = average_lightness(icon.pixmap(20, 20))
+    apply_theme(qapp, "dark")
+    dark_value = average_lightness(icon.pixmap(20, 20))
+
+    assert dark_value > light_value + 80

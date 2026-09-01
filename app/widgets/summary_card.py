@@ -15,7 +15,7 @@ class SummaryCard(QFrame):
         self.setProperty("summaryCard", True)
         root=QVBoxLayout(self); root.setContentsMargins(18,16,18,16); root.setSpacing(9)
         head=QHBoxLayout(); head.setContentsMargins(0,0,0,0); head.setSpacing(8)
-        icon=QLabel(); icon.setObjectName("lbl_summary_icon"); icon.setPixmap(IconManager.get(self.ICONS.get(title.lower(),"dashboard")).pixmap(16,16)); icon.setFixedSize(18,18); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon=QLabel(); icon.setObjectName("lbl_summary_icon"); IconManager.bind_label(icon,self.ICONS.get(title.lower(),"dashboard"),16); icon.setFixedSize(18,18); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_title=QLabel(title.upper()); self.lbl_title.setProperty("summaryLabel",True)
         head.addWidget(icon); head.addWidget(self.lbl_title); head.addStretch(); root.addLayout(head)
         self.lbl_value=QLabel(str(value)); self.lbl_value.setProperty("summaryValue",True); root.addWidget(self.lbl_value)

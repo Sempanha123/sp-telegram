@@ -97,19 +97,19 @@ QPushButton[nav="true"] {
     min-height: 44px;
     text-align: left;
     background: transparent;
-    border: 0;
+    border: 1px solid transparent;
     color: #C2CAE0;
     padding: 0 14px;
     border-radius: 9px;
 }
 QPushButton[nav="true"]:hover {
-    background: rgba(139, 155, 255, 34);
+    background: #172036;
     color: #FFFFFF;
 }
 QPushButton[nav="true"]:focus { border: 1px solid #8B9BFF; }
 QPushButton[nav="true"]:checked {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5667E8, stop:1 #167E9C);
-    color: #FFFFFF;
+    background: #202D52;
+    color: #EEF2FF;
     font-weight: 700;
     border-left: 3px solid #8B9BFF;
 }
@@ -170,6 +170,15 @@ QLabel[statusChip="true"][state="muted"] {
 QFrame#page_header { background: transparent; border: 0; }
 QLabel[pageTitle="true"] { font-size: 23px; font-weight: 650; }
 QLabel[pageSubtitle="true"] { color: #7F8BA6; font-size: 12px; }
+QLabel[dialogTitle="true"] { font-size: 18px; font-weight: 700; color: #F5F7FF; }
+QLabel[dialogTitleLarge="true"] { font-size: 20px; font-weight: 700; color: #F5F7FF; }
+
+QLabel[statusBadge="true"], QLabel[capabilityBadge="true"] { border-radius: 8px; padding: 4px 10px; font-weight: 600; }
+QLabel[statusBadge="true"][tone="success"], QLabel[capabilityBadge="true"][tone="success"] { background: #10382F; color: #6EE7B7; }
+QLabel[statusBadge="true"][tone="warning"], QLabel[capabilityBadge="true"][tone="warning"] { background: #3B2E12; color: #FCD34D; }
+QLabel[statusBadge="true"][tone="danger"], QLabel[capabilityBadge="true"][tone="danger"] { background: #3D1E2A; color: #FDA4AF; }
+QLabel[statusBadge="true"][tone="info"], QLabel[capabilityBadge="true"][tone="info"] { background: #132D42; color: #7DD3FC; }
+QLabel[statusBadge="true"][tone="muted"], QLabel[capabilityBadge="true"][tone="muted"] { background: #1C263A; color: #9AA7C0; }
 QFrame#page_toolbar, QFrame#filter_bar, QFrame#selection_bar { background: transparent; border: 0; }
 QFrame#selection_bar { background: #172036; border: 1px solid #2D3B59; border-radius: 9px; }
 QLabel#lbl_selection_count { color: #B7C1D9; font-weight: 650; }
@@ -319,7 +328,9 @@ QLabel[systemBannerText="true"] { font-weight: 650; color: #67E8F9; }
 QFrame[systemBanner="true"][state="attention"] { background: #382D16; border-color: #765D20; }
 QFrame[systemBanner="true"][state="attention"] QLabel[systemBannerText="true"] { color: #FCD34D; }
 QPushButton#btn_dashboard_review_attention { min-height: 28px; padding: 0 9px; color: #FCD34D; }
-QFrame#account_pool_summary { background: #1B1642; border: 1px solid #3E3178; border-radius: 12px; }
+QFrame#account_pool_summary { background: #11182B; border: 1px solid #2B3855; border-radius: 12px; }
+QWidget[accountSummaryItem="true"] { background: transparent; border: 0; }
+QLabel[accountSummaryLabel="true"] { color: #7F8BA6; font-size: 11px; }
 QLabel[summaryValueSmall="true"] { font-size: 15px; font-weight: 750; color: #D8D2F8; }
 QLabel[summaryValueSmall="true"][tone="success"] { color: #34D399; }
 QLabel[summaryValueSmall="true"][tone="warning"] { color: #FBBF24; }
@@ -464,6 +475,7 @@ QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0
 QLabel[tone="success"] { color: #34D399; }
 QLabel[tone="warning"] { color: #FBBF24; }
 QLabel[tone="danger"] { color: #FB7185; }
+QLabel[tone="info"] { color: #7DD3FC; }
 QLabel[tone="primary"] { color: #8B9BFF; }
 QLabel[tone="purple"] { color: #67E8F9; }
 QLabel[tone="muted"] { color: #7F8BA6; }

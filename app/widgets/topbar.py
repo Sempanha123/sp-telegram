@@ -54,7 +54,7 @@ class TopBar(QFrame):
         layout.addStretch(1)
 
         search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); self._search_frame = search_frame; search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(9,0,7,0); search_layout.setSpacing(6)
-        search_icon=QLabel(); search_icon.setPixmap(IconManager.get("search").pixmap(16,16)); search_layout.addWidget(search_icon)
+        search_icon=QLabel(); IconManager.bind_label(search_icon,"search",16); search_layout.addWidget(search_icon)
         self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText(self.FULL_SEARCH_PLACEHOLDER); self.le_global_search.setMinimumWidth(240); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
         self.lbl_search_shortcut=QLabel("Ctrl K"); self.lbl_search_shortcut.setObjectName("lbl_search_shortcut")
         search_layout.addWidget(self.le_global_search,1); search_layout.addWidget(self.lbl_search_shortcut); layout.addWidget(search_frame,2)

@@ -40,7 +40,7 @@ from app.pages.settings_page import SettingsPage
 from app.pages.source_groups_page import SourceGroupsPage
 from app.pages.target_groups_page import TargetGroupsPage
 from app.pages.templates_page import TemplatesPage
-from app.theme import apply_theme, get_current_theme
+from app.theme import apply_theme, normalize_theme
 from app.license.feature_keys import FeatureKey, LimitKey
 from app.license.license_models import PlanKey
 from app.license.plan_config import PLAN_CONFIG, PLAN_ORDER
@@ -1030,13 +1030,11 @@ class MainWindow(QMainWindow):
         set_current_theme(str(self.settings.value("ui/theme", "light")))
 
     def set_theme(self, theme):
+        normalized = normalize_theme(theme)
         app = QApplication.instance()
         if isinstance(app, QApplication):
-            apply_theme(app, theme)
-        self.settings.setValue("ui/theme", theme)
-        # Update the theme state
-        from app.theme_state import set_current_theme
-        set_current_theme(theme)
+            apply_theme(app, normalized)
+        self.settings.setValue("ui/theme", normalized)
 
     def current_key(self):
         widget = self.stack_main_pages.currentWidget()
@@ -1101,9 +1099,6 @@ class MainWindow(QMainWindow):
         self.set_theme(theme)
         key = str(self.settings.value("window/last_page", "dashboard"))
         self.navigate(key if key in self.pages else "dashboard")
-        # Set the current theme in the theme state
-        from app.theme_state import set_current_theme
-        set_current_theme(theme)
 
     def closeEvent(self, event):
         active = self.context.job_repository.count_by_status("RUNNING") + self.context.job_repository.count_by_status("QUEUED")
