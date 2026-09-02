@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from app.icons import IconManager
 from app.widgets.icon_button import IconButton
@@ -14,6 +14,7 @@ class TopBar(QFrame):
     notificationsRequested = Signal()
     themeRequested = Signal()
     licenseRequested = Signal()
+    commandPaletteRequested = Signal()
 
     COMPACT_WIDTH = 1040
     FULL_SEARCH_PLACEHOLDER = "Search accounts, groups, members, campaigns…"
@@ -53,11 +54,13 @@ class TopBar(QFrame):
         title_layout.addWidget(self.lbl_page_title); title_layout.addWidget(self.lbl_page_subtitle); layout.addWidget(title_host)
         layout.addStretch(1)
 
-        search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); self._search_frame = search_frame; search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(9,0,7,0); search_layout.setSpacing(6)
-        search_icon=QLabel(); IconManager.bind_label(search_icon,"search",16); search_layout.addWidget(search_icon)
-        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText(self.FULL_SEARCH_PLACEHOLDER); self.le_global_search.setMinimumWidth(240); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
-        self.lbl_search_shortcut=QLabel("Ctrl K"); self.lbl_search_shortcut.setObjectName("lbl_search_shortcut")
-        search_layout.addWidget(self.le_global_search,1); search_layout.addWidget(self.lbl_search_shortcut); layout.addWidget(search_frame,2)
+        search_frame=QFrame(); search_frame.setObjectName("global_search_frame"); search_frame.setProperty("active",False); search_frame.setFixedHeight(42); search_frame.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed); self._search_frame = search_frame; search_layout=QHBoxLayout(search_frame); search_layout.setContentsMargins(11,0,7,0); search_layout.setSpacing(8)
+        search_icon=QLabel(); IconManager.bind_label(search_icon,"search",16); search_icon.setFixedSize(18,18); search_icon.setAlignment(Qt.AlignmentFlag.AlignCenter); search_layout.addWidget(search_icon)
+        self.le_global_search = QLineEdit(); self.le_global_search.setObjectName("le_global_search"); self.le_global_search.setPlaceholderText(self.FULL_SEARCH_PLACEHOLDER); self.le_global_search.setMinimumWidth(240); self.le_global_search.setFixedHeight(40); self.le_global_search.returnPressed.connect(lambda:self.searchRequested.emit(self.le_global_search.text())); self.le_global_search.installEventFilter(self)
+        self.btn_search_shortcut=QPushButton("Ctrl + K"); self.btn_search_shortcut.setObjectName("btn_search_shortcut"); self.btn_search_shortcut.setFocusPolicy(Qt.FocusPolicy.NoFocus); self.btn_search_shortcut.setToolTip("Open command palette (Ctrl+K)"); self.btn_search_shortcut.clicked.connect(lambda _checked=False:self.commandPaletteRequested.emit())
+        # Compatibility alias retained for existing UI tests/localization code.
+        self.lbl_search_shortcut=self.btn_search_shortcut
+        search_layout.addWidget(self.le_global_search,1); search_layout.addWidget(self.btn_search_shortcut); layout.addWidget(search_frame,2)
         self.btn_global_search = QPushButton("Search", self); self.btn_global_search.setObjectName("btn_global_search"); self.btn_global_search.hide(); self.btn_global_search.clicked.connect(lambda:self.searchRequested.emit(self.le_global_search.text()))
 
         self.lbl_internet_status = QLabel("NET  ●"); self.lbl_internet_status.setObjectName("lbl_internet_status"); self.lbl_internet_status.setProperty("statusChip", True)
@@ -76,6 +79,12 @@ class TopBar(QFrame):
 
     def set_page(self, title: str, subtitle: str | None = None):
         self.lbl_page_title.setText(title); self.lbl_page_subtitle.setText(subtitle if subtitle is not None else self.PAGE_SUBTITLES.get(title,"")); self.lbl_page_subtitle.setVisible(not self._compact and bool(self.lbl_page_subtitle.text()))
+
+    def eventFilter(self, watched, event):
+        if watched is self.le_global_search and event.type() in {QEvent.Type.FocusIn,QEvent.Type.FocusOut}:
+            self._search_frame.setProperty("active",event.type()==QEvent.Type.FocusIn)
+            self._search_frame.style().unpolish(self._search_frame);self._search_frame.style().polish(self._search_frame)
+        return super().eventFilter(watched,event)
 
     def resizeEvent(self, event):  # noqa: N802 - Qt API name
         super().resizeEvent(event)

@@ -103,19 +103,25 @@ TABLE_ROW_HEIGHT = 36
 STATUS_TONE_KEYS = {
     "success": (
         "ok", "active", "connected", "healthy", "success", "completed", "ready", "enabled", "online",
-        "normal", "authorized", "available", "verified", "eligible",
+        "normal", "authorized", "available", "verified", "eligible", "resolved", "approved", "opted in",
+        "not blacklisted", "sent", "current",
     ),
     "warning": (
         "warning", "pending", "queued", "partial", "connecting", "paused", "trial", "cooldown", "watch",
-        "daily limited", "login required", "recovering", "validating", "flood wait", "spam limited",
+        "daily limited", "login required", "recovering", "validating", "flood wait", "spam limited", "busy",
+        "waiting", "pending recheck", "manual review", "partial success", "never synced", "unknown status",
+        "authentication required", "invite restricted", "posting restricted",
     ),
     "danger": (
         "error", "failed", "restricted", "expired", "suspended", "invalid", "blocked", "critical",
-        "session invalid", "do not contact", "safety blocked", "cancelled", "interrupted",
+        "session invalid", "do not contact", "safety blocked", "cancelled", "interrupted", "access denied",
+        "unavailable", "reconcile required", "revoked", "declined", "blacklisted", "deleted account", "banned",
     ),
-    "info": ("running", "scheduled", "in progress", "processing"),
+    "info": ("running", "scheduled", "in progress", "processing", "syncing", "sending", "collecting"),
     "muted": (
         "muted", "idle", "disabled", "offline", "unknown", "draft", "no accounts", "configuration required",
+        "disconnected", "not joined", "archived", "cancelled externally", "stopped", "skipped", "missing",
+        "not configured", "never", "inactive",
     ),
 }
 STATUS_TONE_BY_KEY = {

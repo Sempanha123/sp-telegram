@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QRect, QSize, Qt
-from PySide6.QtGui import QPainter, QPalette
+from PySide6.QtGui import QFont, QFontMetrics, QPainter, QPalette
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QStyleOptionViewItem
 
 
@@ -27,7 +27,8 @@ class AvatarDelegate(QStyledItemDelegate):
 
     def __init__(self, avatar_service, kind: str, id_attr: str = "id",
                  name_attr: str = "first_name", parent=None,
-                 peer_id_attr: str | None = None, account_id_attr: str | None = None):
+                 peer_id_attr: str | None = None, account_id_attr: str | None = None,
+                 subtitle_column: str | None = None):
         super().__init__(parent)
         self.avatar_service = avatar_service
         self.kind = kind
@@ -35,6 +36,8 @@ class AvatarDelegate(QStyledItemDelegate):
         self.name_attr = name_attr
         self.peer_id_attr = peer_id_attr
         self.account_id_attr = account_id_attr
+        self.subtitle_column = subtitle_column
+        self._delegate_column: int | None = None
         self._requested: set[int] = set()
         if avatar_service is not None:
             avatar_service.avatarReady.connect(self._on_avatar_ready)
@@ -86,6 +89,20 @@ class AvatarDelegate(QStyledItemDelegate):
         except (TypeError, ValueError):
             return 0
 
+    def _subtitle(self, index) -> str:
+        if not self.subtitle_column:
+            return ""
+        model = index.model()
+        columns = list(getattr(model, "columns", []) or [])
+        source = getattr(model, "sourceModel", lambda: None)()
+        if self.subtitle_column not in columns and source is not None:
+            columns = list(getattr(source, "columns", []) or [])
+        if self.subtitle_column not in columns:
+            return ""
+        sibling = model.index(index.row(), columns.index(self.subtitle_column))
+        value = str(sibling.data(Qt.ItemDataRole.DisplayRole) or "").strip()
+        return "" if value in {"", "—", "None"} else value
+
     def _on_avatar_ready(self, kind: str, entity_id: int) -> None:
         if kind != self.kind:
             return
@@ -96,8 +113,9 @@ class AvatarDelegate(QStyledItemDelegate):
         model = view.model()
         if model is None:
             return
+        column = self._delegate_column if self._delegate_column is not None else 0
         for row in range(model.rowCount()):
-            idx = model.index(row, 0)
+            idx = model.index(row, column)
             if self._entity_id(idx) == entity_id:
                 view.viewport().update(view.visualRect(idx))
                 break
@@ -105,11 +123,17 @@ class AvatarDelegate(QStyledItemDelegate):
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:  # noqa: N802
         base = super().sizeHint(option, index)
         text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
-        width = option.fontMetrics.horizontalAdvance(text) + self.AVATAR_SIZE + self.GAP + self.H_PADDING * 2
-        height = max(base.height(), self.AVATAR_SIZE + 8)
+        subtitle = self._subtitle(index)
+        text_width = max(
+            option.fontMetrics.horizontalAdvance(text),
+            option.fontMetrics.horizontalAdvance(subtitle),
+        )
+        width = text_width + self.AVATAR_SIZE + self.GAP + self.H_PADDING * 2
+        height = max(base.height(), self.AVATAR_SIZE + 10)
         return QSize(max(base.width(), width), height)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        self._delegate_column = index.column()
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         text = opt.text
@@ -132,7 +156,11 @@ class AvatarDelegate(QStyledItemDelegate):
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
                 painter.drawPixmap(rect, pm)
                 painter.restore()
-            if entity_id not in self._requested:
+            # Accounts can fetch their own profile with get_me(). Groups and
+            # members need a real authorizing account; do not create an endless
+            # retry loop for unmapped entities that can only show initials.
+            can_request = self.kind == "account" or self._entity_account_id(index) > 0
+            if can_request and entity_id not in self._requested:
                 self._requested.add(entity_id)
                 self.avatar_service.request(
                     self.kind,
@@ -150,10 +178,62 @@ class AvatarDelegate(QStyledItemDelegate):
             color = option.palette.color(QPalette.ColorRole.HighlightedText)
         else:
             color = option.palette.text().color()
-        painter.setPen(color)
-        painter.drawText(
-            text_rect,
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            option.fontMetrics.elidedText(text, Qt.TextElideMode.ElideRight, text_rect.width()),
-        )
+        subtitle = self._subtitle(index)
+        if subtitle:
+            primary_font = QFont(option.font)
+            primary_font.setWeight(QFont.Weight.DemiBold)
+            painter.setFont(primary_font)
+            primary_metrics = painter.fontMetrics()
+
+            secondary_font = QFont(option.font)
+            if secondary_font.pointSize() > 0:
+                secondary_font.setPointSize(max(8, secondary_font.pointSize() - 1))
+            elif secondary_font.pixelSize() > 0:
+                secondary_font.setPixelSize(max(10, secondary_font.pixelSize() - 1))
+            secondary_metrics = QFontMetrics(secondary_font)
+
+            line_gap = 1
+            total_height = (
+                primary_metrics.height() + line_gap + secondary_metrics.height()
+            )
+            top = text_rect.y() + (text_rect.height() - total_height) // 2
+            primary_rect = QRect(
+                text_rect.x(), max(text_rect.y(), top),
+                text_rect.width(), primary_metrics.height(),
+            )
+            secondary_rect = QRect(
+                text_rect.x(), primary_rect.y() + primary_rect.height() + line_gap,
+                text_rect.width(), secondary_metrics.height(),
+            )
+            painter.setPen(color)
+            painter.drawText(
+                primary_rect,
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                primary_metrics.elidedText(
+                    text, Qt.TextElideMode.ElideRight, primary_rect.width()
+                ),
+            )
+            painter.setFont(secondary_font)
+            secondary_color = (
+                color
+                if option.state & QStyle.StateFlag.State_Selected
+                else option.palette.color(QPalette.ColorRole.PlaceholderText)
+            )
+            painter.setPen(secondary_color)
+            painter.drawText(
+                secondary_rect,
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                secondary_metrics.elidedText(
+                    subtitle, Qt.TextElideMode.ElideRight, secondary_rect.width()
+                ),
+            )
+        else:
+            painter.setPen(color)
+            painter.drawText(
+                text_rect,
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                option.fontMetrics.elidedText(
+                    text, Qt.TextElideMode.ElideRight, text_rect.width()
+                ),
+            )
         painter.restore()

@@ -5,6 +5,7 @@ from app.dialogs.dialog_compat import *
 from app.models.base_table_model import BaseTableModel
 from app.dialogs.group_account_mapping_dialog import GroupAccountMappingDialog
 from app.widgets.detail_header import DetailHeaderWidget
+from app.widgets.avatar_delegate import AvatarDelegate
 from app.utils.formatters import format_local_datetime
 from app.utils.table_preferences import TablePreferenceManager
 from app.utils.table_layout_manager import TableLayoutManager, ColumnLayout
@@ -50,7 +51,21 @@ class GroupDetailsDialog(QDialog):
         for key,label in [("can_view","View"),("can_post","Post"),("can_send_media","Send Media"),("can_invite","Invite"),("can_manage","Manage"),("can_delete_messages","Delete Messages"),("can_pin_messages","Pin Messages"),("can_ban_users","Ban Users"),("can_add_admins","Add Admins"),("can_manage_call","Manage Calls"),("can_manage_topics","Manage Topics"),("can_manage_invite_links","Manage Invite Links"),("can_approve_join_requests","Approve Join Requests")]:q=QLabel("—");self.permission_labels[key]=q;self.permission_form.addRow(label,q)
         root.addLayout(self.permission_form);self.tabs.addTab(w,"Permissions");self.cmb_group_permission_account.currentIndexChanged.connect(self._show_permissions);self.btn_refresh_group_permissions.clicked.connect(self._refresh_permissions)
     def _accounts(self):
-        w=QWidget();root=QVBoxLayout(w);self.accounts_model=BaseTableModel([],self.ACCOUNT_COLS);self.tbl_group_accounts=QTableView();self.tbl_group_accounts.setModel(self.accounts_model);self.tbl_group_accounts.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self._table_layout.apply(self.tbl_group_accounts,self.ACCOUNT_COLS);root.addWidget(self.tbl_group_accounts,1);actions=QHBoxLayout();self.btn_group_add_account_mapping=QPushButton("Add Account Mapping");self.btn_group_add_account_mapping.setObjectName("btn_group_add_account_mapping");self.btn_group_refresh_account_mapping=QPushButton("Refresh Mapping");self.btn_group_refresh_account_mapping.setObjectName("btn_group_refresh_account_mapping");self.btn_group_remove_account_mapping=QPushButton("Remove Mapping");self.btn_group_remove_account_mapping.setObjectName("btn_group_remove_account_mapping");self.btn_group_set_primary_account=QPushButton("Set Primary");self.btn_group_set_primary_account.setObjectName("btn_group_set_primary_account");[actions.addWidget(x) for x in [self.btn_group_add_account_mapping,self.btn_group_refresh_account_mapping,self.btn_group_remove_account_mapping,self.btn_group_set_primary_account]];actions.addStretch();root.addLayout(actions);self.tabs.addTab(w,"Accounts");self.btn_group_add_account_mapping.clicked.connect(self._add_mapping);self.btn_group_refresh_account_mapping.clicked.connect(self.reload);self.btn_group_remove_account_mapping.clicked.connect(self._remove_mapping);self.btn_group_set_primary_account.clicked.connect(self._set_primary);self._load_accounts()
+        w=QWidget();root=QVBoxLayout(w);self.accounts_model=BaseTableModel([],self.ACCOUNT_COLS);self.tbl_group_accounts=QTableView();self.tbl_group_accounts.setModel(self.accounts_model);self.tbl_group_accounts.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self._table_layout.apply(self.tbl_group_accounts,self.ACCOUNT_COLS)
+        if self.avatar_service is not None:
+            self.tbl_group_accounts.setItemDelegateForColumn(
+                0,
+                AvatarDelegate(
+                    self.avatar_service,
+                    "account",
+                    "_account_id",
+                    "Account",
+                    self.tbl_group_accounts,
+                    account_id_attr="_account_id",
+                ),
+            )
+            self.tbl_group_accounts.verticalHeader().setDefaultSectionSize(44)
+        root.addWidget(self.tbl_group_accounts,1);actions=QHBoxLayout();self.btn_group_add_account_mapping=QPushButton("Add Account Mapping");self.btn_group_add_account_mapping.setObjectName("btn_group_add_account_mapping");self.btn_group_refresh_account_mapping=QPushButton("Refresh Mapping");self.btn_group_refresh_account_mapping.setObjectName("btn_group_refresh_account_mapping");self.btn_group_remove_account_mapping=QPushButton("Remove Mapping");self.btn_group_remove_account_mapping.setObjectName("btn_group_remove_account_mapping");self.btn_group_set_primary_account=QPushButton("Set Primary");self.btn_group_set_primary_account.setObjectName("btn_group_set_primary_account");[actions.addWidget(x) for x in [self.btn_group_add_account_mapping,self.btn_group_refresh_account_mapping,self.btn_group_remove_account_mapping,self.btn_group_set_primary_account]];actions.addStretch();root.addLayout(actions);self.tabs.addTab(w,"Accounts");self.btn_group_add_account_mapping.clicked.connect(self._add_mapping);self.btn_group_refresh_account_mapping.clicked.connect(self.reload);self.btn_group_remove_account_mapping.clicked.connect(self._remove_mapping);self.btn_group_set_primary_account.clicked.connect(self._set_primary);self._load_accounts()
     def _telegram_info(self):
         f=self._tab_form("Telegram Info");g=self.group
         for label,val in [("Telegram Entity ID",g.telegram_group_id),("Username",g.username or "—"),("Entity Type",g.group_type),("Megagroup",bool(g.is_megagroup)),("Broadcast",bool(g.is_broadcast)),("Forum",bool(g.is_forum)),("Gigagroup",bool(g.is_gigagroup)),("Linked Discussion",g.linked_chat_id or "—"),("Verified",bool(g.is_verified)),("Scam Flag",bool(g.is_scam)),("Fake Flag",bool(g.is_fake))]:f.addRow(label,QLabel(str(val)))
@@ -79,7 +94,7 @@ class GroupDetailsDialog(QDialog):
     def _load_accounts(self):
         mappings=self.controller.accounts_for_group(self.group_id);self._mappings=mappings;self.cmb_group_permission_account.blockSignals(True);self.cmb_group_permission_account.clear();rows=[]
         for m in mappings:
-            self.cmb_group_permission_account.addItem(m.account_name,m.account_id);rows.append({"Account":m.account_name,"Role":m.role.title(),"Health":str(getattr(m,"health_status","UNKNOWN") or "UNKNOWN").replace("_"," ").title(),"Post":self._cap(m.can_post),"Invite":self._cap(m.can_invite),"Create Link":self._cap(m.can_manage_invite_links),"Approve Join":self._cap(getattr(m,"can_approve_join_requests",None)),"Primary":"Yes" if m.is_primary else "No","Last Verified":m.last_permission_check_at or "Never","Status":m.last_error_code or "Ready"})
+            self.cmb_group_permission_account.addItem(m.account_name,m.account_id);rows.append({"Account":m.account_name,"Role":m.role.title(),"Health":str(getattr(m,"health_status","UNKNOWN") or "UNKNOWN").replace("_"," ").title(),"Post":self._cap(m.can_post),"Invite":self._cap(m.can_invite),"Create Link":self._cap(m.can_manage_invite_links),"Approve Join":self._cap(getattr(m,"can_approve_join_requests",None)),"Primary":"Yes" if m.is_primary else "No","Last Verified":m.last_permission_check_at or "Never","Status":m.last_error_code or "Ready","_account_id":m.account_id})
         self.cmb_group_permission_account.blockSignals(False);self.accounts_model.replace_rows(rows);self._show_permissions()
     def _show_permissions(self):
         aid=self.cmb_group_permission_account.currentData();m=next((x for x in getattr(self,"_mappings",[]) if x.account_id==aid),None)

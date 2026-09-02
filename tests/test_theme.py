@@ -58,6 +58,9 @@ def test_theme_files_are_not_accidentally_empty() -> None:
 
 
 def test_topbar_compact_mode_preserves_full_status_in_tooltips(qapp) -> None:
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QFocusEvent
+
     from app.widgets.topbar import TopBar
 
     topbar = TopBar()
@@ -78,6 +81,15 @@ def test_topbar_compact_mode_preserves_full_status_in_tooltips(qapp) -> None:
     assert "Online" in topbar.lbl_internet_status.text()
     assert "Ready" in topbar.lbl_telegram_global_status.text()
     assert "Error" in topbar.lbl_database.text()
+
+    requested = []
+    topbar.commandPaletteRequested.connect(lambda: requested.append(True))
+    assert topbar.btn_search_shortcut.text() == "Ctrl + K"
+    topbar.btn_search_shortcut.click()
+    assert requested == [True]
+
+    qapp.sendEvent(topbar.le_global_search,QFocusEvent(QEvent.Type.FocusIn))
+    assert topbar._search_frame.property("active") is True
 
 
 def test_dashboard_attention_banner_routes_to_the_relevant_page(qapp) -> None:
@@ -126,6 +138,36 @@ def test_status_badge_uses_theme_driven_properties(qapp) -> None:
 
     badge.set_state("Running")
     assert badge.property("tone") == "info"
+
+    badge.set_state("Connected")
+    expected_text_width = badge.fontMetrics().horizontalAdvance(badge.text())
+    assert badge.sizeHint().width() >= expected_text_width + badge.H_PADDING * 2
+    assert badge.sizeHint().height() >= badge.MIN_HEIGHT
+
+
+def test_status_delegate_reserves_symmetric_badge_padding(qapp) -> None:
+    from PySide6.QtGui import QFontMetrics
+
+    from app.widgets.table_delegate import ModernTableDelegate
+
+    delegate = ModernTableDelegate()
+    metrics = QFontMetrics(qapp.font())
+    width = delegate._badge_width(metrics, "Connected")
+
+    assert width >= (
+        metrics.horizontalAdvance("Connected")
+        + delegate.DOT_DIAMETER
+        + delegate.DOT_SPACING
+        + delegate.H_PADDING * 2
+    )
+
+
+def test_status_palette_covers_operational_states() -> None:
+    from app.styles.tokens import STATUS_TONE_BY_KEY
+
+    assert STATUS_TONE_BY_KEY["disconnected"] == "muted"
+    assert STATUS_TONE_BY_KEY["access denied"] == "danger"
+    assert STATUS_TONE_BY_KEY["syncing"] == "info"
 
 
 def test_svg_icons_follow_the_application_palette(qapp) -> None:

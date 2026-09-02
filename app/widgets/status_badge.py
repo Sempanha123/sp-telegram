@@ -15,10 +15,8 @@ class StatusBadge(QLabel):
     cannot be clipped at normal/high-DPI Windows scales.
     """
 
-    H_PADDING = 11
+    H_PADDING = 12
     V_PADDING = 5
-    DOT_DIAMETER = 6
-    DOT_SPACING = 6
     MIN_HEIGHT = 28
     MIN_WIDTH = 52
 
@@ -42,10 +40,12 @@ class StatusBadge(QLabel):
 
     def _content_size(self) -> QSize:
         metrics = self.fontMetrics()
-        text_width = metrics.horizontalAdvance(self._display or "Unknown")
+        # Measure exactly what QLabel paints.  Estimating the bullet and its
+        # spaces separately clipped the final character on some Windows DPI
+        # settings (for example, "Connected").
+        text_width = metrics.horizontalAdvance(self.text() or "●  Unknown")
         text_height = metrics.height()
-        dot_width = max(self.DOT_DIAMETER, metrics.horizontalAdvance("●"))
-        width = text_width + dot_width + self.DOT_SPACING + (self.H_PADDING * 2)
+        width = text_width + (self.H_PADDING * 2) + 2
         height = max(self.MIN_HEIGHT, text_height + (self.V_PADDING * 2))
         return QSize(max(self.MIN_WIDTH, width), height)
 

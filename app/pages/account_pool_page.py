@@ -60,9 +60,10 @@ class AccountPoolPage(BaseTablePage):
             self.table.setItemDelegateForColumn(
                 self.model.columns.index("Account"),
                 AvatarDelegate(self.avatar_service, "account", "id", "account", self.table,
-                               account_id_attr="id"),
+                               account_id_attr="id", subtitle_column="Username"),
             )
         self._configure_columns()
+        if "Username" in self.model.columns:self.table.setColumnHidden(self.model.columns.index("Username"),True)
         self.searchDebounced.connect(controller.set_search)
         self.filterChanged.connect(controller.set_filter)
         self.pageChanged.connect(controller.set_page)

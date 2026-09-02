@@ -9,6 +9,7 @@ from app.dialogs.target_members_dialog import TargetMembersDialog
 from app.dialogs.join_requests_dialog import JoinRequestsDialog
 from app.models.base_table_model import BaseTableModel
 from app.pages.base_table_page import BaseTablePage
+from app.widgets.avatar_delegate import AvatarDelegate
 
 class TargetGroupsPage(BaseTablePage):
     campaignRequested=Signal(int)
@@ -16,6 +17,9 @@ class TargetGroupsPage(BaseTablePage):
     def __init__(self,controller,member_controller=None,parent=None,*,avatar_service=None):
         self.controller=controller;self.member_controller=member_controller;self.avatar_service=avatar_service;items,total=controller.get_scoped("target",1,100);controller.pagination.total_items=total
         super().__init__("page_target_groups","Target Groups",BaseTableModel(self._rows(items),self.COLUMNS),"tbl_target_groups",[("btn_add_target_group","Add Target Group"),("btn_sync_target_groups","Sync Metadata"),("btn_assign_target_account","Assign Account"),("btn_target_group_details","Details"),("btn_remove_target_group_flag","Remove Target Flag"),("btn_sync_target_members","Sync Existing Status"),("btn_view_target_members","View Target Members"),("btn_create_target_invite_link","Create Invite Link"),("btn_copy_target_invite_link","Copy Invite Link"),("btn_view_join_requests","Join Requests"),("btn_create_target_campaign","Create Campaign"),("btn_manage_invite_links","Invite Links"),("btn_mass_add_to_target","Mass Add to Target")],None,[],parent);self.enable_database_mode(controller.pagination)
+        if self.avatar_service is not None:
+            self.table.setItemDelegateForColumn(0,AvatarDelegate(self.avatar_service,"group","_id","Target",self.table,peer_id_attr="_telegram_id",account_id_attr="_account_id",subtitle_column="Username"));self.table.verticalHeader().setDefaultSectionSize(44)
+        if "Username" in self.model.columns:self.table.setColumnHidden(self.model.columns.index("Username"),True)
         self.action_buttons["btn_add_target_group"].clicked.connect(lambda:AddGroupDialog(controller,classification="target",parent=self).exec());self.action_buttons["btn_sync_target_groups"].clicked.connect(self.sync);self.action_buttons["btn_assign_target_account"].clicked.connect(self.details);self.action_buttons["btn_target_group_details"].clicked.connect(self.details);self.action_buttons["btn_remove_target_group_flag"].clicked.connect(self.remove_flag);self.action_buttons["btn_sync_target_members"].clicked.connect(self.sync_members);self.action_buttons["btn_view_target_members"].clicked.connect(self.view_members);self.action_buttons["btn_create_target_invite_link"].clicked.connect(self.create_invite_link);self.action_buttons["btn_copy_target_invite_link"].clicked.connect(self.copy_invite_link);self.action_buttons["btn_view_join_requests"].clicked.connect(self.view_join_requests);self.action_buttons["btn_create_target_campaign"].clicked.connect(self.create_campaign);self.action_buttons["btn_mass_add_to_target"].clicked.connect(self.mass_add_to_target)
         # Historical objectName stays hidden for compatibility.  The production
         # actions below manage invite links/join requests only; they never perform
@@ -35,7 +39,7 @@ class TargetGroupsPage(BaseTablePage):
         out=[]
         for g in items:
             stats=self.member_controller.target_stats(g.id) if self.member_controller else {};mapping=stats.get("mapping") if stats else None;last=mapping.member_list_checked_at if mapping else None
-            out.append({"Target":g.title,"Username":f"@{g.username}" if g.username else "—","Members":g.member_count,"Primary Account":g.account_name or "—","Role":g.role.title(),"Can Post":"—" if g.can_post is None else bool(g.can_post),"Can Invite":"—" if g.can_invite is None else bool(g.can_invite),"Can Manage":"—" if g.can_manage is None else bool(g.can_manage),"Known Existing Members":stats.get("existing",0) if stats else 0,"Unknown Status":stats.get("unknown",0) if stats else 0,"Last Member Check":last or "Never","Last Sync":g.last_sync_at or "Never","Status":g.status.replace("_"," ").title(),"_id":g.id})
+            out.append({"Target":g.title,"Username":f"@{g.username}" if g.username else "—","Members":g.member_count,"Primary Account":g.account_name or "—","Role":g.role.title(),"Can Post":"—" if g.can_post is None else bool(g.can_post),"Can Invite":"—" if g.can_invite is None else bool(g.can_invite),"Can Manage":"—" if g.can_manage is None else bool(g.can_manage),"Known Existing Members":stats.get("existing",0) if stats else 0,"Unknown Status":stats.get("unknown",0) if stats else 0,"Last Member Check":last or "Never","Last Sync":g.last_sync_at or "Never","Status":g.status.replace("_"," ").title(),"_id":g.id,"_telegram_id":g.telegram_group_id,"_account_id":g.primary_account_id})
         return out
     def _id(self):r=self.selected_row();return r.get("_id") if r else None
     def sync(self):

@@ -12,10 +12,10 @@ class ModernTableDelegate(QStyledItemDelegate):
     """Paint known status values as content-sized badges without cell widgets."""
 
     BADGE_HEIGHT = 28
-    H_PADDING = 11
+    H_PADDING = 12
     DOT_DIAMETER = 6
     DOT_SPACING = 6
-    CELL_MARGIN = 7
+    CELL_MARGIN = 8
 
     @staticmethod
     def _status_palette(value):
@@ -24,8 +24,10 @@ class ModernTableDelegate(QStyledItemDelegate):
         return palette.get(key)
 
     def _badge_width(self, metrics, text: str) -> int:
-        dot_width = max(self.DOT_DIAMETER, metrics.horizontalAdvance("●"))
-        return max(52, metrics.horizontalAdvance(text) + dot_width + self.DOT_SPACING + self.H_PADDING * 2)
+        # The dot is painted as geometry, not as part of the text.  Measuring
+        # those two pieces independently keeps the right padding symmetric at
+        # every Windows DPI/font scale.
+        return max(52, metrics.horizontalAdvance(text) + self.DOT_DIAMETER + self.DOT_SPACING + self.H_PADDING * 2)
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:  # noqa: N802
         base = super().sizeHint(option, index)
@@ -65,10 +67,27 @@ class ModernTableDelegate(QStyledItemDelegate):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(bg))
         painter.drawRoundedRect(rect, 8, 8)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(fg))
+        dot_x = rect.x() + self.H_PADDING
+        painter.drawEllipse(
+            QRect(
+                dot_x,
+                rect.y() + (rect.height() - self.DOT_DIAMETER) // 2,
+                self.DOT_DIAMETER,
+                self.DOT_DIAMETER,
+            )
+        )
+        text_rect = rect.adjusted(
+            self.H_PADDING + self.DOT_DIAMETER + self.DOT_SPACING,
+            0,
+            -self.H_PADDING,
+            0,
+        )
         painter.setPen(QColor(fg))
         painter.drawText(
-            rect.adjusted(self.H_PADDING, 0, -self.H_PADDING, 0),
+            text_rect,
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            f"●  {text}",
+            option.fontMetrics.elidedText(text, Qt.TextElideMode.ElideRight, text_rect.width()),
         )
         painter.restore()

@@ -8,12 +8,16 @@ from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QMessageBox, QPu
 from app.models.base_table_model import BaseTableModel
 from app.pages.base_table_page import BaseTablePage
 from app.widgets.stat_card import StatCard
+from app.widgets.avatar_delegate import AvatarDelegate
 
 
 class RestrictionsPage(BaseTablePage):
-    def __init__(self, controller, parent=None):
+    def __init__(self, controller, parent=None, *, avatar_service=None):
         self.controller = controller
-        cols = ["Account", "Type", "Scope", "Source", "Confidence", "Started", "Expires", "Remaining", "Status", "Last Error"]
+        self.avatar_service = avatar_service
+        self._account_repo=getattr(getattr(controller,"manager",None),"accounts",None)
+        self._account_lookup={int(a.id):a for a in (self._account_repo.get_all() if self._account_repo is not None else []) if a.id}
+        cols = ["Account", "Username", "Type", "Scope", "Source", "Confidence", "Started", "Expires", "Remaining", "Status", "Last Error"]
         super().__init__(
             "page_restrictions", "Restriction Center", BaseTableModel([], cols), "tbl_restrictions",
             [
@@ -37,15 +41,37 @@ class RestrictionsPage(BaseTablePage):
         self.card_action_required = StatCard("User Action Required", 0, "card_restriction_action_required")
         for card in (self.card_active_restrictions, self.card_expired_today, self.card_accounts_affected, self.card_action_required): cards.addWidget(card)
         self.layout().insertLayout(1, cards)
+        if self.avatar_service is not None:
+            self.table.setItemDelegateForColumn(
+                0,
+                AvatarDelegate(
+                    self.avatar_service,
+                    "account",
+                    "_account_id",
+                    "Account",
+                    self.table,
+                    account_id_attr="_account_id",
+                    subtitle_column="Username",
+                ),
+            )
+            self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setColumnHidden(cols.index("Username"), True)
         self.action_buttons["btn_refresh_restrictions"].clicked.connect(controller.refresh)
         self.action_buttons["btn_view_restriction"].clicked.connect(self._view)
         self.action_buttons["btn_recheck_restriction"].clicked.connect(self._recheck)
         self.action_buttons["btn_mark_manual_resolved"].clicked.connect(self._resolve)
         self.action_buttons["btn_export_restrictions"].clicked.connect(self._export)
         controller.restrictionsChanged.connect(self._set_items)
+        if getattr(controller,"account_controller",None) is not None:
+            controller.account_controller.accountsChanged.connect(self._accounts_changed)
         self._items = []
         self._timer = QTimer(self); self._timer.setInterval(1000); self._timer.timeout.connect(self._refresh_countdowns); self._timer.start()
         self._set_items(controller.restrictions())
+
+    def _accounts_changed(self,accounts):
+        all_accounts=self._account_repo.get_all() if self._account_repo is not None else (accounts or [])
+        self._account_lookup={int(a.id):a for a in all_accounts if a.id}
+        if self._items:self._set_items(self._items,update_cards=False)
 
     @staticmethod
     def _remaining(expires_at: str | None, state: str) -> str:
@@ -58,10 +84,14 @@ class RestrictionsPage(BaseTablePage):
         except Exception: return "—"
 
     def _rows(self, items):
-        return [
-            {
+        rows=[]
+        for r in items:
+            account=self._account_lookup.get(int(r.account_id or 0));account_name=(account.first_name or account.username or f"Account {r.account_id}") if account else f"Account {r.account_id or '—'}"
+            rows.append({
                 "_id": r.id,
-                "Account": r.account_id,
+                "_account_id": r.account_id,
+                "Account": account_name,
+                "Username": f"@{account.username}" if account and account.username else "—",
                 "Type": str(r.restriction_type or "UNKNOWN").replace("_", " ").title(),
                 "Scope": str(getattr(r, "scope", "UNKNOWN") or "UNKNOWN").replace("_", " ").title(),
                 "Source": str(r.source or "UNKNOWN").replace("_", " ").title(),
@@ -71,9 +101,8 @@ class RestrictionsPage(BaseTablePage):
                 "Remaining": self._remaining(r.expires_at, getattr(r, "state", "ACTIVE")),
                 "Status": str(getattr(r, "state", "ACTIVE") or "ACTIVE").replace("_", " ").title(),
                 "Last Error": r.reason or r.error_code or "—",
-            }
-            for r in items
-        ]
+            })
+        return rows
 
     def _refresh_countdowns(self):
         # Countdown display is local UI state; do not re-query SQLite every

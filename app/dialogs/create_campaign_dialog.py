@@ -10,14 +10,15 @@ from app.widgets.calendar_utils import configure_calendar_popup
 from app.dialogs.message_editor_dialog import MessageEditorDialog
 from app.models.base_table_model import BaseTableModel
 from app.utils.table_layout_manager import TableLayoutManager, ColumnLayout
+from app.widgets.avatar_delegate import AvatarDelegate
 
 class CreateCampaignDialog(QDialog):
     draftAutosaveRequested=Signal(dict)
     saveAsTemplateRequested=Signal(dict)
     refreshPermissionsRequested=Signal(list)
     STEPS=['General','Target Groups','Posting Accounts','Content','Schedule','Preview','Preflight']
-    def __init__(self,targets:list[dict],accounts:list,parent=None,campaign=None,details=None,smart_planner=None):
-        super().__init__(parent);self.setWindowTitle('Create Campaign');self.resize(960,720);self._table_layout=TableLayoutManager(self);self.targets=targets;self.accounts=accounts;self.messages=[];self._campaign=campaign;self._details=details or {};self._finish_mode='finish';self.smart_planner=smart_planner;self._last_smart_plan={}
+    def __init__(self,targets:list[dict],accounts:list,parent=None,campaign=None,details=None,smart_planner=None,avatar_service=None):
+        super().__init__(parent);self.setWindowTitle('Create Campaign');self.resize(960,720);self._table_layout=TableLayoutManager(self);self.targets=targets;self.accounts=accounts;self.messages=[];self._campaign=campaign;self._details=details or {};self._finish_mode='finish';self.smart_planner=smart_planner;self.avatar_service=avatar_service;self._last_smart_plan={}
         root=QVBoxLayout(self);self.lbl_step=QLabel();self.lbl_step.setProperty('dialogTitle',True);root.addWidget(self.lbl_step)
         # UX-008: step indicator — numbered dots show progress through the wizard.
         self._step_dots=[]; step_row=QHBoxLayout(); step_row.setSpacing(6)
@@ -45,8 +46,24 @@ class CreateCampaignDialog(QDialog):
     def _targets(self):
         w=self._page();l=QVBoxLayout(w);rows=[]
         for t in self.targets:
-            g=t['group'];m=t.get('mapping');rows.append({'Group':g.title,'Username':('@'+g.username) if g.username else 'Private','Type':str(g.group_type).replace('_',' ').title(),'Primary Account':getattr(m,'account_name',None) or (str(m.account_id) if m else '—'),'Role':getattr(m,'role','—') if m else '—','Can Post':'Yes' if m and m.can_post else 'No','Can Media':'Yes' if m and m.can_send_media else 'No','Status':'Ready' if t.get('selectable') else (t.get('reason') or 'Unavailable'),'Group ID':g.id})
+            g=t['group'];m=t.get('mapping');rows.append({'Group':g.title,'Username':('@'+g.username) if g.username else 'Private','Type':str(g.group_type).replace('_',' ').title(),'Primary Account':getattr(m,'account_name',None) or (str(m.account_id) if m else '—'),'Role':getattr(m,'role','—') if m else '—','Can Post':'Yes' if m and m.can_post else 'No','Can Media':'Yes' if m and m.can_send_media else 'No','Status':'Ready' if t.get('selectable') else (t.get('reason') or 'Unavailable'),'Group ID':g.id,'_telegram_id':g.telegram_group_id,'_account_id':getattr(m,'account_id',0) if m else 0})
         self.target_model=BaseTableModel(rows,['Group','Username','Type','Primary Account','Role','Can Post','Can Media','Status']);self.tbl_campaign_target_selection=QTableView();self.tbl_campaign_target_selection.setObjectName('tbl_campaign_target_selection');self.tbl_campaign_target_selection.setModel(self.target_model);self.tbl_campaign_target_selection.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self.tbl_campaign_target_selection.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection);self._table_layout.apply(self.tbl_campaign_target_selection,self.target_model.columns,overrides={'Group':ColumnLayout(210,150,'stretch'),'Username':ColumnLayout(170,120),'Primary Account':ColumnLayout(180,140),'Can Media':ColumnLayout(110,95),'Status':ColumnLayout(130,100)});l.addWidget(self.tbl_campaign_target_selection,1)
+        if self.avatar_service is not None:
+            self.tbl_campaign_target_selection.setItemDelegateForColumn(
+                0,
+                AvatarDelegate(
+                    self.avatar_service,
+                    'group',
+                    'Group ID',
+                    'Group',
+                    self.tbl_campaign_target_selection,
+                    peer_id_attr='_telegram_id',
+                    account_id_attr='_account_id',
+                    subtitle_column='Username',
+                ),
+            )
+            self.tbl_campaign_target_selection.verticalHeader().setDefaultSectionSize(44)
+        self.tbl_campaign_target_selection.setColumnHidden(self.target_model.columns.index('Username'),True)
         a=QHBoxLayout();self.btn_select_all_campaign_targets=QPushButton('Select All Ready');self.btn_select_all_campaign_targets.setObjectName('btn_select_all_campaign_targets');self.btn_clear_campaign_targets=QPushButton('Clear');self.btn_clear_campaign_targets.setObjectName('btn_clear_campaign_targets');self.btn_validate_campaign_targets=QPushButton('Validate Targets');self.btn_validate_campaign_targets.setObjectName('btn_validate_campaign_targets')
         # Phase-1 compatibility names.
         self.btn_select_all_targets=self.btn_select_all_campaign_targets;self.btn_clear_target_selection=self.btn_clear_campaign_targets;self.btn_validate_targets=self.btn_validate_campaign_targets

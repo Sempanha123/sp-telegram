@@ -22,8 +22,10 @@ class GroupsPage(BaseTablePage):
             self.table.setItemDelegateForColumn(
                 self.model.columns.index("Group"),
                 AvatarDelegate(self.avatar_service, "group", "id", "title", self.table,
-                               peer_id_attr="telegram_group_id", account_id_attr="primary_account_id"),
+                               peer_id_attr="telegram_group_id", account_id_attr="primary_account_id",subtitle_column="Username"),
             )
+            self.table.verticalHeader().setDefaultSectionSize(44)
+        if "Username" in self.model.columns:self.table.setColumnHidden(self.model.columns.index("Username"),True)
         self.searchDebounced.connect(controller.set_search);self.filterChanged.connect(controller.set_filter);self.pageChanged.connect(controller.set_page);self.pageSizeChanged.connect(controller.set_page_size);controller.groupsChanged.connect(self._replace)
         self.action_buttons["btn_add_group"].clicked.connect(self.add_group);self.action_buttons["btn_discover_groups"].clicked.connect(self.discover);self.action_buttons["btn_resolve_group"].clicked.connect(self.add_group);self.action_buttons["btn_sync_groups"].clicked.connect(self.sync_selected);self.action_buttons["btn_refresh_groups"].clicked.connect(controller.refresh);self.action_buttons["btn_more_group_actions"].clicked.connect(self.more_menu);self.table.doubleClicked.connect(lambda:self.open_details());self.table.customContextMenuRequested.connect(self.context_menu)
         self.actions={}
@@ -31,7 +33,7 @@ class GroupsPage(BaseTablePage):
         self.actions["act_group_details"].triggered.connect(self.open_details);self.actions["act_group_sync"].triggered.connect(self.sync_selected);self.actions["act_group_refresh_permissions"].triggered.connect(self.refresh_permissions);self.actions["act_group_assign_account"].triggered.connect(self.open_details);self.actions["act_group_set_primary"].triggered.connect(self.open_details);self.actions["act_group_mark_source"].triggered.connect(lambda:self.classify("source"));self.actions["act_group_mark_target"].triggered.connect(lambda:self.classify("target"));self.actions["act_group_mark_managed"].triggered.connect(lambda:self.classify("managed"));self.actions["act_group_open_telegram"].triggered.connect(self.open_telegram);self.actions["act_group_export"].triggered.connect(self.export_csv);self.actions["act_group_remove"].triggered.connect(self.remove_selected)
     def _replace(self,items):self.model.replace_rows(items);self.update_pagination(self.controller.pagination)
     def add_group(self):AddGroupDialog(self.controller,parent=self).exec()
-    def discover(self):GroupDiscoveryDialog(self.controller,self).exec()
+    def discover(self):GroupDiscoveryDialog(self.controller,self,avatar_service=self.avatar_service).exec()
     def open_details(self):
         item=self.selected_item()
         if item:GroupDetailsDialog(self.controller,item.id,self,avatar_service=self.avatar_service).exec()

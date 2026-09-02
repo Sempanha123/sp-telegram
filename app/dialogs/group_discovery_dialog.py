@@ -3,11 +3,12 @@ from PySide6.QtCore import QSortFilterProxyModel,Qt
 from PySide6.QtWidgets import QCheckBox,QComboBox,QDialog,QHBoxLayout,QLabel,QLineEdit,QPushButton,QTableView,QVBoxLayout,QAbstractItemView
 from app.dialogs.dialog_compat import *
 from app.models.base_table_model import BaseTableModel
+from app.widgets.avatar_delegate import AvatarDelegate
 
 class GroupDiscoveryDialog(QDialog):
     COLUMNS=["Group","Username","Type","Members","Role","Can Post","Can Invite","Already Saved","Status"]
-    def __init__(self,controller,parent=None):
-        super().__init__(parent);self.controller=controller;self.results=[];self.setWindowTitle("Discover My Groups");self.resize(1000,650);root=QVBoxLayout(self)
+    def __init__(self,controller,parent=None,*,avatar_service=None):
+        super().__init__(parent);self.controller=controller;self.avatar_service=avatar_service;self.results=[];self.setWindowTitle("Discover My Groups");self.resize(1000,650);root=QVBoxLayout(self)
         top=QHBoxLayout();top.addWidget(QLabel("Account:"));self.cmb_discovery_account=QComboBox();self.cmb_discovery_account.setObjectName("cmb_discovery_account")
         accounts=list(controller.available_accounts())
         for a in accounts:self.cmb_discovery_account.addItem(f"{a.first_name or a.username or 'Account'} @{a.username or '—'}",a.id)
@@ -17,6 +18,22 @@ class GroupDiscoveryDialog(QDialog):
         for text in ["Groups","Supergroups","Channels","Forums"]:c=QCheckBox(text);c.setChecked(True);c.toggled.connect(self._apply_type_filters);self.checks.append(c);filters.addWidget(c)
         self.le_discovery_search=QLineEdit();self.le_discovery_search.setPlaceholderText("Search discovered groups…");filters.addWidget(self.le_discovery_search,1);root.addLayout(filters)
         self.model=BaseTableModel([],self.COLUMNS);self.proxy=QSortFilterProxyModel(self);self.proxy.setSourceModel(self.model);self.proxy.setFilterKeyColumn(-1);self.proxy.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive);self.table=QTableView();self.table.setModel(self.proxy);self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection);self.table.setSortingEnabled(True);root.addWidget(self.table,1)
+        if self.avatar_service is not None:
+            self.table.setItemDelegateForColumn(
+                0,
+                AvatarDelegate(
+                    self.avatar_service,
+                    "group",
+                    "_telegram_id",
+                    "Group",
+                    self.table,
+                    peer_id_attr="_telegram_id",
+                    account_id_attr="_account_id",
+                    subtitle_column="Username",
+                ),
+            )
+            self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setColumnHidden(self.COLUMNS.index("Username"), True)
         bottom=QHBoxLayout();self.btn_select_all_discovered=QPushButton("Select All");self.btn_select_all_discovered.setObjectName("btn_select_all_discovered");self.btn_clear_discovered_selection=QPushButton("Clear Selection");self.btn_clear_discovered_selection.setObjectName("btn_clear_discovered_selection");self.btn_save_discovered_groups=QPushButton("Save Selected");self.btn_save_discovered_groups.setObjectName("btn_save_discovered_groups");self.btn_save_discovered_groups.setProperty("primary",True);self.btn_discovery_close=QPushButton("Close");self.btn_discovery_close.setObjectName("btn_discovery_close");[bottom.addWidget(x) for x in [self.btn_select_all_discovered,self.btn_clear_discovered_selection]];bottom.addStretch();bottom.addWidget(self.btn_save_discovered_groups);bottom.addWidget(self.btn_discovery_close);root.addLayout(bottom)
         self.btn_discover_start.clicked.connect(self.discover);self.btn_discover_refresh.clicked.connect(self.discover);self.btn_discover_start.setEnabled(bool(accounts));self.btn_discover_refresh.setEnabled(bool(accounts));self.btn_discover_start.setToolTip("Add or connect an authorized Telegram account first." if not accounts else "");self.le_discovery_search.textChanged.connect(self.proxy.setFilterFixedString);self.btn_select_all_discovered.clicked.connect(self.table.selectAll);self.btn_clear_discovered_selection.clicked.connect(self.table.clearSelection);self.btn_save_discovered_groups.clicked.connect(self.save);self.btn_discovery_close.clicked.connect(self.accept)
     def discover(self):
@@ -25,7 +42,7 @@ class GroupDiscoveryDialog(QDialog):
         self.btn_discover_start.setEnabled(False);self.btn_discover_start.setText("Discovering…");self.controller.discover_groups(int(aid),self._loaded)
     def _loaded(self,items):
         self.btn_discover_start.setEnabled(True);self.btn_discover_start.setText("Discover Groups");self.results=items;rows=[]
-        for r in items:rows.append({"Group":r.title,"Username":f"@{r.username}" if r.username else "—","Type":r.type.replace("_"," ").title(),"Members":r.member_count if r.member_count is not None else "—","Role":r.account_role.replace("_"," ").title(),"Can Post":self._cap(r.permissions.can_post),"Can Invite":self._cap(r.permissions.can_invite),"Already Saved":"Yes" if r.already_saved else "No","Status":"Saved" if r.already_saved else "New"})
+        for r in items:rows.append({"Group":r.title,"Username":f"@{r.username}" if r.username else "—","Type":r.type.replace("_"," ").title(),"Members":r.member_count if r.member_count is not None else "—","Role":r.account_role.replace("_"," ").title(),"Can Post":self._cap(r.permissions.can_post),"Can Invite":self._cap(r.permissions.can_invite),"Already Saved":"Yes" if r.already_saved else "No","Status":"Saved" if r.already_saved else "New","_telegram_id":r.telegram_group_id,"_account_id":r.account_id})
         self._all_rows=rows;self._all_items=list(items);self._apply_type_filters()
     def _apply_type_filters(self):
         rows=getattr(self,"_all_rows",[])

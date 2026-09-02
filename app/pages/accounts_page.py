@@ -46,7 +46,7 @@ class AccountsPage(BaseTablePage):
         self.enable_database_mode(controller.pagination)
         # Technical identity/session columns remain in the model and details/export,
         # but the default operations view prioritizes day-to-day status.
-        for column in ["Select","ID","Telegram ID","Phone","Premium","Authorization","Session","Last Active","Last Connected","Last Health Check","Last Error","Tags"]:
+        for column in ["Select","ID","Telegram ID","Username","Phone","Premium","Authorization","Session","Last Active","Last Connected","Last Health Check","Last Error","Tags"]:
             if column in self.model.columns: self.table.setColumnHidden(self.model.columns.index(column), True)
         self.searchDebounced.connect(controller.set_search)
         self.filterChanged.connect(controller.set_filter)
@@ -77,7 +77,7 @@ class AccountsPage(BaseTablePage):
                 # peer_id is passed → profile_service uses get_me() (avoids the
                 # "Could not find the input entity" failure for uncached ids).
                 AvatarDelegate(self.avatar_service, "account", "id", "first_name", self.table,
-                               account_id_attr="id"),
+                               account_id_attr="id", subtitle_column="Username"),
             )
         # Keep the main toolbar focused on frequent operations. Less-common local
         # actions remain available through More and the existing context menu.

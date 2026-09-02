@@ -133,9 +133,11 @@ QLabel#lbl_brand_icon {
 }
 
 /* Topbar */
-QFrame#global_search_frame { background: #11182B; border: 1px solid #2B3855; border-radius: 9px; }
-QLineEdit#le_global_search { background: transparent; border: 0; min-height: 36px; padding-left: 2px; }
-QLabel#lbl_search_shortcut { color: #7F8BA6; background: #172036; border: 1px solid #2D3B59; border-radius: 5px; padding: 2px 6px; font-size: 10px; }
+QFrame#global_search_frame { background: #11182B; border: 1px solid #2B3855; border-radius: 10px; }
+QFrame#global_search_frame[active="true"] { border-color: #8B9BFF; background: #121B30; }
+QLineEdit#le_global_search { background: transparent; border: 0; min-height: 40px; max-height: 40px; padding: 0 2px; }
+QPushButton#btn_search_shortcut { color: #9AA7C0; background: #172036; border: 1px solid #354563; border-radius: 6px; min-width: 54px; min-height: 24px; max-height: 24px; padding: 0 8px; font-size: 10px; }
+QPushButton#btn_search_shortcut:hover { color: #F5F7FF; background: #202D52; border-color: #6D7CFF; }
 QLabel[statusChip="true"] {
     background: #141D32;
     border: 1px solid #2B3855;
@@ -173,7 +175,8 @@ QLabel[pageSubtitle="true"] { color: #7F8BA6; font-size: 12px; }
 QLabel[dialogTitle="true"] { font-size: 18px; font-weight: 700; color: #F5F7FF; }
 QLabel[dialogTitleLarge="true"] { font-size: 20px; font-weight: 700; color: #F5F7FF; }
 
-QLabel[statusBadge="true"], QLabel[capabilityBadge="true"] { border-radius: 8px; padding: 4px 10px; font-weight: 600; }
+QLabel[statusBadge="true"] { border-radius: 8px; padding: 0 12px; min-height: 28px; max-height: 28px; font-weight: 600; }
+QLabel[capabilityBadge="true"] { border-radius: 8px; padding: 4px 10px; font-weight: 600; }
 QLabel[statusBadge="true"][tone="success"], QLabel[capabilityBadge="true"][tone="success"] { background: #10382F; color: #6EE7B7; }
 QLabel[statusBadge="true"][tone="warning"], QLabel[capabilityBadge="true"][tone="warning"] { background: #3B2E12; color: #FCD34D; }
 QLabel[statusBadge="true"][tone="danger"], QLabel[capabilityBadge="true"][tone="danger"] { background: #3D1E2A; color: #FDA4AF; }
@@ -501,7 +504,7 @@ QWidget[metricTile="true"] { background: #0F1728; border: 1px solid #2B3855; bor
 QLabel[metricValue="true"] { font-size: 18px; font-weight: 700; }
 QLabel#lbl_summary_icon { color: #7F8BA6; }
 QLabel[statusChip="true"], QPushButton#btn_license_status, QPushButton#btn_emergency_pause {
-    min-height: 30px; max-height: 30px; padding: 0 9px; border-radius: 7px;
+    min-height: 32px; max-height: 32px; padding: 0 12px; border-radius: 8px;
 }
 QProgressBar[tone="success"]::chunk { background: #34D399; }
 QProgressBar[tone="warning"]::chunk { background: #FBBF24; }

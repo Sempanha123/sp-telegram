@@ -150,8 +150,8 @@ class MainWindow(QMainWindow):
         self._add_page("operations", OperationsPage(c.operations_controller))
         self._add_page("accounts", AccountsPage(c.account_controller, avatar_service=c.avatar_service))
         self._add_page("account_pool", AccountPoolPage(c.account_pool_controller, c.account_controller, c.group_controller, avatar_service=c.avatar_service))
-        self._add_page("account_health", AccountHealthPage(c.account_controller))
-        self._add_page("restrictions", RestrictionsPage(c.restriction_controller))
+        self._add_page("account_health", AccountHealthPage(c.account_controller, avatar_service=c.avatar_service))
+        self._add_page("restrictions", RestrictionsPage(c.restriction_controller, avatar_service=c.avatar_service))
         self._add_page("sessions", SessionsPage(c.account_controller))
         self._add_page("groups", GroupsPage(c.group_controller, avatar_service=c.avatar_service))
         self._add_page("source_groups", SourceGroupsPage(c.group_controller, c.member_controller, avatar_service=c.avatar_service))
@@ -184,6 +184,7 @@ class MainWindow(QMainWindow):
         self.sidebar.collapsedChanged.connect(lambda value: self.settings.setValue("window/sidebar_collapsed", value))
         self.topbar.pauseToggled.connect(self.on_operations_pause_toggled)
         self.topbar.searchRequested.connect(self.on_global_search)
+        self.topbar.commandPaletteRequested.connect(self._open_command_palette)
         self.topbar.notificationsRequested.connect(self.open_notification_center)
         self.topbar.themeRequested.connect(self.on_toggle_theme)
         self.topbar.licenseRequested.connect(lambda: self.navigate("license", "License"))
@@ -842,7 +843,7 @@ class MainWindow(QMainWindow):
             self._show_feature_upgrade(str(FeatureKey.CAMPAIGNS), str(self.context.feature_gate.get_required_plan(FeatureKey.CAMPAIGNS) or "PRO"))
             return
         targets, accounts = self._campaign_dialog_data()
-        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets)
+        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets, avatar_service=self.context.avatar_service)
         dialog.saveAsTemplateRequested.connect(self.on_save_campaign_as_template)
         dialog.refreshPermissionsRequested.connect(self.on_campaign_refresh_permissions)
         for row, target in enumerate(targets):
@@ -868,7 +869,7 @@ class MainWindow(QMainWindow):
             self._show_feature_upgrade(str(FeatureKey.CAMPAIGNS), str(self.context.feature_gate.get_required_plan(FeatureKey.CAMPAIGNS) or "PRO"))
             return
         targets, accounts = self._campaign_dialog_data()
-        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets)
+        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets, avatar_service=self.context.avatar_service)
         dialog.saveAsTemplateRequested.connect(self.on_save_campaign_as_template)
         dialog.refreshPermissionsRequested.connect(self.on_campaign_refresh_permissions)
         if dialog.exec():
@@ -880,7 +881,7 @@ class MainWindow(QMainWindow):
     def on_edit_campaign(self, item):
         targets, accounts = self._campaign_dialog_data()
         details = self.context.campaign_controller.details(item.id)
-        dialog = CreateCampaignDialog(targets, accounts, self, campaign=item, details=details, smart_planner=self.context.campaign_controller.plan_smart_targets)
+        dialog = CreateCampaignDialog(targets, accounts, self, campaign=item, details=details, smart_planner=self.context.campaign_controller.plan_smart_targets, avatar_service=self.context.avatar_service)
         dialog.saveAsTemplateRequested.connect(self.on_save_campaign_as_template)
         dialog.refreshPermissionsRequested.connect(self.on_campaign_refresh_permissions)
         dialog.setWindowTitle("Edit Campaign")
@@ -943,7 +944,7 @@ class MainWindow(QMainWindow):
 
     def on_use_template(self, details):
         targets, accounts = self._campaign_dialog_data()
-        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets)
+        dialog = CreateCampaignDialog(targets, accounts, self, smart_planner=self.context.campaign_controller.plan_smart_targets, avatar_service=self.context.avatar_service)
         dialog.saveAsTemplateRequested.connect(self.on_save_campaign_as_template)
         dialog.refreshPermissionsRequested.connect(self.on_campaign_refresh_permissions)
         template = details.get("template")
