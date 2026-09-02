@@ -1,1 +1,0 @@
-"""SP Telegram license service."""
