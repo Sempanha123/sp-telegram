@@ -51,10 +51,33 @@ def test_native_palette_matches_theme(theme: str, text: str, surface: str) -> No
     assert palette.color(QPalette.ColorRole.Base).name() == surface
 
 
+@pytest.mark.parametrize(
+    ("theme", "highlight", "highlighted_text"),
+    [("light", "#dde0f6", "#172033"), ("dark", "#243253", "#f2f5ff")],
+)
+def test_native_selection_palette_is_body_aligned(
+    theme: str, highlight: str, highlighted_text: str
+) -> None:
+    from PySide6.QtGui import QPalette
+
+    palette = build_palette(theme)
+    assert palette.color(QPalette.ColorRole.Highlight).name() == highlight
+    assert palette.color(QPalette.ColorRole.HighlightedText).name() == highlighted_text
+
+
 def test_theme_files_are_not_accidentally_empty() -> None:
     assert (STYLES_DIR / "light.qss").stat().st_size > 10_000
     assert (STYLES_DIR / "dark.qss").stat().st_size > 2_000
     assert (STYLES_DIR / "components.qss").stat().st_size > 10_000
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_theme_uses_transparent_options_and_quiet_selection(theme: str) -> None:
+    stylesheet = load_stylesheet(theme)
+
+    assert 'QCheckBox[optionControl="true"]' in stylesheet
+    assert "QCheckBox, QRadioButton { background: transparent; }" in stylesheet
+    assert "#5A2040" not in stylesheet
 
 
 def test_topbar_compact_mode_preserves_full_status_in_tooltips(qapp) -> None:

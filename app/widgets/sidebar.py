@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
+from app.branding import brand_logo_pixmap, brand_mark_pixmap
 from app.constants import NAV_ITEMS
 from app.icons import IconManager
 from app.styles.tokens import SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED
@@ -53,13 +54,15 @@ class Sidebar(QFrame):
         self.setFixedWidth(self.expanded_width)
 
         root = QVBoxLayout(self); root.setContentsMargins(10, 14, 10, 10); root.setSpacing(6)
-        header = QFrame(); header.setObjectName("sidebar_header"); header_layout = QHBoxLayout(header); header_layout.setContentsMargins(4, 0, 4, 8); header_layout.setSpacing(10)
-        self.lbl_brand_icon = QLabel("SP"); self.lbl_brand_icon.setObjectName("lbl_brand_icon"); self.lbl_brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header = QFrame(); header.setObjectName("sidebar_header"); header_layout = QHBoxLayout(header); header_layout.setContentsMargins(0, 0, 0, 8); header_layout.setSpacing(10)
+        self.lbl_brand_icon = QLabel(); self.lbl_brand_icon.setObjectName("lbl_brand_icon"); self.lbl_brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter); self.lbl_brand_icon.setFixedSize(54,44); self.lbl_brand_icon.setPixmap(brand_logo_pixmap()); self.lbl_brand_icon.setToolTip("SP Cambo")
+        self.lbl_brand_icon.setAccessibleName("SP Cambo logo")
         brand_text = QWidget(); brand_text.setObjectName("sidebar_brand_text"); brand_text.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); brand_text.setAutoFillBackground(False)
         brand_layout = QVBoxLayout(brand_text); brand_layout.setContentsMargins(0,0,0,0); brand_layout.setSpacing(0)
         self.lbl_app_name = QLabel("SP Telegram"); self.lbl_app_name.setObjectName("lbl_app_name"); self.lbl_app_name.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); self.lbl_app_name.setAutoFillBackground(False)
-        self.lbl_edition = QLabel(""); self.lbl_edition.setProperty("muted", True); self.lbl_edition.hide()
+        self.lbl_edition = QLabel("SP CAMBO  •  AUTOMATION"); self.lbl_edition.setObjectName("lbl_brand_edition")
         brand_layout.addWidget(self.lbl_app_name)
+        brand_layout.addWidget(self.lbl_edition)
         header_layout.addWidget(self.lbl_brand_icon); header_layout.addWidget(brand_text, 1)
         self._brand_text = brand_text
         root.addWidget(header)
@@ -116,6 +119,12 @@ class Sidebar(QFrame):
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = bool(collapsed)
         self.setFixedWidth(self.compact_width if self._collapsed else self.expanded_width)
+        if self._collapsed:
+            self.lbl_brand_icon.setFixedSize(40, 40)
+            self.lbl_brand_icon.setPixmap(brand_mark_pixmap())
+        else:
+            self.lbl_brand_icon.setFixedSize(54, 44)
+            self.lbl_brand_icon.setPixmap(brand_logo_pixmap())
         self._brand_text.setVisible(not self._collapsed)
         for label in self._section_labels: label.setVisible(not self._collapsed)
         self.btn_toggle_sidebar.setText("" if self._collapsed else "Collapse")

@@ -83,6 +83,7 @@ class CollectorPage(QWidget):
         for i, (obj, text, checked) in enumerate(option_defs):
             control = QCheckBox(text)
             control.setObjectName(obj)
+            control.setProperty("optionControl", True)
             control.setChecked(checked)
             setattr(self, obj, control)
             opts.addWidget(control, i // 3, i % 3)

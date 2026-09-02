@@ -11,6 +11,7 @@ from PySide6.QtCore import QCoreApplication, QSettings
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.application_context import ApplicationContext
+from app.branding import brand_icon
 from app.constants import APP_NAME
 from app.database.database import DatabaseError
 from app.dialogs.dialog_compat import *
@@ -84,6 +85,7 @@ def main() -> int:
     QCoreApplication.setOrganizationName(APP_NAME)
     QCoreApplication.setApplicationName(APP_NAME)
     app = QApplication(sys.argv)
+    app.setWindowIcon(brand_icon())
     # Ending the application is an explicit MainWindow decision.  Closing a
     # transient dialog or accidentally losing the last visible child must not
     # silently terminate the event loop.

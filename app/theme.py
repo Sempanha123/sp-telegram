@@ -55,9 +55,10 @@ def build_palette(theme: str = "light") -> QPalette:
         "muted": "#7F8BA6" if dark else "#8491A9",
         "disabled": "#4D5870" if dark else "#AEBACD",
         "button": "#141D32" if dark else "#FFFFFF",
-        "highlight": "#6D7CFF" if dark else "#5B5CE2",
-        "highlighted": "#FFFFFF",
+        "highlight": "#243253" if dark else "#DDE0F6",
+        "highlighted": "#F2F5FF" if dark else "#172033",
         "link": "#67E8F9" if dark else "#2563EB",
+        "visited": "#8B7CFF" if dark else "#5B5CE2",
     }
     palette = QPalette()
     role_colors = {
@@ -74,7 +75,7 @@ def build_palette(theme: str = "light") -> QPalette:
         QPalette.ColorRole.Highlight: colors["highlight"],
         QPalette.ColorRole.HighlightedText: colors["highlighted"],
         QPalette.ColorRole.Link: colors["link"],
-        QPalette.ColorRole.LinkVisited: colors["highlight"],
+        QPalette.ColorRole.LinkVisited: colors["visited"],
         QPalette.ColorRole.PlaceholderText: colors["muted"],
     }
     for role, value in role_colors.items():

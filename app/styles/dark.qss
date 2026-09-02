@@ -42,7 +42,7 @@ QStatusBar { background: #0B1020; color: #7F8BA6; border-top: 1px solid #24314A;
 QToolTip { background: #172036; color: #F5F7FF; border: 1px solid #2D3B59; padding: 6px 8px; border-radius: 6px; }
 QMenu { background: #172036; border: 1px solid #2D3B59; border-radius: 8px; padding: 6px; }
 QMenu::item { padding: 8px 30px 8px 10px; border-radius: 6px; }
-QMenu::item:selected { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #202D52, stop:1 #16475C); }
+QMenu::item:selected { background: #18243D; color: #F2F5FF; }
 QMenu::separator { height: 1px; background: #2D3B59; margin: 5px 8px; }
 QScrollBar:vertical { width: 9px; background: transparent; margin: 2px; }
 QScrollBar::handle:vertical { background: #2D3B59; border-radius: 4px; min-height: 28px; }
@@ -55,4 +55,4 @@ QDialog { background: #0B1020; }
 QMessageBox { background: #11182B; }
 QSplitter::handle { background: #26334D; }
 QCalendarWidget QWidget { alternate-background-color: #172036; }
-QCalendarWidget QAbstractItemView { selection-background-color: #6D7CFF; selection-color: white; }
+QCalendarWidget QAbstractItemView { selection-background-color: #243253; selection-color: #F2F5FF; }
