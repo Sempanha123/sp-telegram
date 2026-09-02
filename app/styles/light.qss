@@ -223,6 +223,9 @@ QPushButton#btn_clear_filters:hover { border-color: #B9C6DE; color: #172033; bac
 QFrame#page_header { background: transparent; border: 0; }
 QFrame#page_toolbar, QFrame#filter_bar, QFrame#selection_bar { background: transparent; border: 0; }
 QFrame#selection_bar { background: #FFFFFF; border: 1px solid #C5CDDC; border-radius: 9px; }
+QPushButton#btn_table_tools { min-height: 36px; border: 1px solid #C5CDDC; border-radius: 8px; background: #FFFFFF; color: #334155; padding: 0 12px; }
+QPushButton#btn_table_tools:hover { border-color: #5B5CE2; color: #24256D; background: #F3F1FF; }
+QPushButton#btn_table_tools[active="true"] { color: #4C3EAF; border-color: #7770E8; background: #EEEAFE; }
 QLabel#lbl_selection_count { color: #56627A; font-weight: 650; }
 
 /* ---------- Tables ---------- */

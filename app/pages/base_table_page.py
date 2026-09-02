@@ -4,7 +4,7 @@ from typing import Any
 import logging
 
 from PySide6.QtCore import QEvent, QSettings, QSortFilterProxyModel, QTimer, Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QPushButton, QSizePolicy, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QMenu, QPushButton, QSizePolicy, QTableView, QVBoxLayout, QWidget
 
 from app.icons import IconManager
 from app.models.base_table_model import BaseTableModel
@@ -100,15 +100,16 @@ class BaseTablePage(QWidget):
             placeholder=f"Search {title.lower()}…" if title not in {"Logs"} else "Search logs…"
             search_host=QWidget(); search_host.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Maximum); search_column=QVBoxLayout(search_host); search_column.setContentsMargins(0,0,0,0); search_column.setSpacing(3)
             self.search_label=QLabel("Search"); self.search_label.setProperty("muted",True); self.search_label.setProperty("filterLabel",True); self.search_label.setFixedHeight(FILTER_LABEL_HEIGHT)
-            self.search=SearchBar(placeholder); self.search.setObjectName(search_object); self.search.setMinimumWidth(300); self.search.setFixedHeight(FILTER_CONTROL_HEIGHT); self.search.textChanged.connect(self._on_search)
+            self.search=SearchBar(placeholder); self.search.setObjectName(search_object); self.search.setMinimumWidth(260); self.search.setFixedHeight(FILTER_CONTROL_HEIGHT); self.search.textChanged.connect(self._on_search)
             search_column.addWidget(self.search_label); search_column.addWidget(self.search); filter_row.addWidget(search_host,2,Qt.AlignmentFlag.AlignBottom)
         self.filter_boxes={}; self.filter_labels={}; self._filter_combos={}; self._active_filters={}
         for obj,column,values in filters or []:
             host=QWidget(); v=QVBoxLayout(host); v.setContentsMargins(0,0,0,0); v.setSpacing(3)
             label=QLabel(column); label.setProperty("muted",True); label.setProperty("filterLabel",True); label.setFixedHeight(FILTER_LABEL_HEIGHT)
-            combo=QComboBox(); combo.setObjectName(obj); combo.addItems(["All",*values]); combo.setMinimumWidth(125); combo.setFixedHeight(FILTER_CONTROL_HEIGHT); combo.currentTextChanged.connect(lambda value,c=column:self._on_filter(c,value))
+            combo=QComboBox(); combo.setObjectName(obj); combo.addItems(["All",*values]); combo.setMinimumWidth(110); combo.setFixedHeight(FILTER_CONTROL_HEIGHT); combo.currentTextChanged.connect(lambda value,c=column:self._on_filter(c,value))
             v.addWidget(label); v.addWidget(combo); self.filter_boxes[obj]=combo; self.filter_labels[obj]=label; self._filter_combos[column]=combo; setattr(self,obj,combo); filter_row.addWidget(host,0,Qt.AlignmentFlag.AlignBottom)
-        self.btn_clear_filters=QPushButton("Clear Filters"); self.btn_clear_filters.setObjectName("btn_clear_filters"); self.btn_clear_filters.setProperty("role","ghost"); self.btn_clear_filters.setIcon(IconManager.get("close")); self.btn_clear_filters.setToolTip("Reset all filters to All"); self.btn_clear_filters.setFixedHeight(FILTER_CONTROL_HEIGHT); self.btn_clear_filters.hide(); self.btn_clear_filters.clicked.connect(self.clear_filters); filter_row.addWidget(self.btn_clear_filters,0,Qt.AlignmentFlag.AlignBottom)
+        self.btn_clear_filters=QPushButton("Clear Search / Filters"); self.btn_clear_filters.setObjectName("btn_clear_filters"); self.btn_clear_filters.setProperty("role","ghost"); self.btn_clear_filters.setIcon(IconManager.get("close")); self.btn_clear_filters.setToolTip("Clear the search and reset every filter to All"); self.btn_clear_filters.setFixedHeight(FILTER_CONTROL_HEIGHT); self.btn_clear_filters.hide(); self.btn_clear_filters.clicked.connect(self.clear_filters); filter_row.addWidget(self.btn_clear_filters,0,Qt.AlignmentFlag.AlignBottom)
+        self.btn_table_tools=QPushButton("Select / View ▾"); self.btn_table_tools.setObjectName("btn_table_tools"); self.btn_table_tools.setProperty("role","ghost"); self.btn_table_tools.setToolTip("Select rows or change the visible table columns"); self.btn_table_tools.setFixedHeight(FILTER_CONTROL_HEIGHT); self.btn_table_tools.clicked.connect(self._show_table_tools); filter_row.addWidget(self.btn_table_tools,0,Qt.AlignmentFlag.AlignBottom)
         filter_row.addStretch(); root.addWidget(filter_host)
 
         self.table=QTableView(); self.table.setObjectName(table_object); self.table.setModel(self.proxy); self.table.setSortingEnabled(True); self.table.setAlternatingRowColors(False); self.table.setShowGrid(False)
@@ -139,7 +140,10 @@ class BaseTablePage(QWidget):
         from app.widgets.loading_overlay import LoadingOverlay
         self.loading_overlay=LoadingOverlay(self); self.loading_overlay.hide(); root.addWidget(self.loading_overlay)
         self._auto_fit_timer=QTimer(self);self._auto_fit_timer.setSingleShot(True);self._auto_fit_timer.setInterval(30);self._auto_fit_timer.timeout.connect(self._auto_fit_after_refresh)
-        self.model.modelReset.connect(self._update_empty);self.model.modelReset.connect(self._schedule_auto_fit_after_refresh);self._update_empty()
+        self.table.selectionModel().selectionChanged.connect(self._refresh_table_tools)
+        checked_changed=getattr(self.model,"checkedChanged",None)
+        if checked_changed is not None: checked_changed.connect(self._refresh_table_tools)
+        self.model.modelReset.connect(self._update_empty);self.model.modelReset.connect(self._refresh_table_tools);self.model.modelReset.connect(self._schedule_auto_fit_after_refresh);self._update_empty();self._refresh_table_tools()
         self.pagination_bar=PaginationBar(self); self.pagination_bar.hide(); root.addWidget(self.pagination_bar); self.pagination_bar.pageChanged.connect(self.pageChanged); self.pagination_bar.pageSizeChanged.connect(self.pageSizeChanged)
         self._restore_header()
         # Delay header-menu/table preference registration until derived pages finish
@@ -208,14 +212,14 @@ class BaseTablePage(QWidget):
         self.filter_host.setVisible(show_data)
         self.table.setVisible(show_data and self.model.rowCount() > 0)
         self.empty_state.setVisible(show_data and self.model.rowCount() == 0)
-        self.pagination_bar.setVisible(show_data and self._database_mode)
+        self.pagination_bar.setVisible(show_data and self._database_mode and self.proxy.rowCount()>0)
         for btn in self.action_buttons.values():
             btn.setEnabled(not locked)
 
     def enable_database_mode(self,state=None):
         self._database_mode=True
-        if (not self._feature_locked) or self._feature_preserve_read_only: self.pagination_bar.show()
         if state is not None:self.pagination_bar.set_state(state)
+        self._update_empty()
     def update_pagination(self,state): self.pagination_bar.set_state(state); self._update_empty()
     def set_empty_state(self,title:str,description:str):
         self._empty_title=title; self._empty_description=description
@@ -224,11 +228,11 @@ class BaseTablePage(QWidget):
         return bool(self._active_filters) or bool(self._pending_search) or bool(self.search and self.search.text())
     def _update_empty(self):
         show_data=(not self._feature_locked) or self._feature_preserve_read_only
-        empty=self.model.rowCount()==0
+        empty=self.proxy.rowCount()==0
         if empty and self._has_active_filters():
             self.empty_state.lbl_title.setText("No results match your filters")
             self.empty_state.lbl_description.setText("Try adjusting or clearing the active filters to see more records.")
-            self.empty_state.set_action("Clear Filters", self.clear_filters)
+            self.empty_state.set_action("Clear Search / Filters", self.clear_filters)
         elif empty:
             self.empty_state.lbl_title.setText(getattr(self,"_empty_title","No records found"))
             self.empty_state.lbl_description.setText(getattr(self,"_empty_description","No local records match the current search or filters."))
@@ -240,9 +244,12 @@ class BaseTablePage(QWidget):
                 self.empty_state.btn_action.hide()
         self.empty_state.setVisible(show_data and empty)
         self.table.setVisible(show_data and not empty)
+        self.btn_table_tools.setVisible(show_data and not empty)
+        has_filter_controls=self.search is not None or bool(self.filter_boxes)
+        self.filter_host.setVisible(show_data and (has_filter_controls or not empty))
         if self._database_mode:
-            self.pagination_bar.setVisible(show_data)
-    def _on_search(self,text:str): self._pending_search=text; self._search_timer.start()
+            self.pagination_bar.setVisible(show_data and not empty)
+    def _on_search(self,text:str): self._pending_search=text; self._search_timer.start(); self._refresh_filter_ui()
     def _apply_search(self):
         if self._database_mode: self.proxy.setFilterFixedString(""); self.searchDebounced.emit(self._pending_search)
         else:self.proxy.setFilterFixedString(self._pending_search)
@@ -258,22 +265,73 @@ class BaseTablePage(QWidget):
             active=combo.currentText() not in ("","All")
             combo.setProperty("active",active)
             combo.style().unpolish(combo); combo.style().polish(combo)
-        self.btn_clear_filters.setVisible(bool(self._active_filters))
+        self.btn_clear_filters.setVisible(bool(self._active_filters) or bool(self.search and self.search.text()))
         self._update_empty()
     def clear_filters(self):
+        had_search=bool(self._pending_search) or bool(self.search and self.search.text())
+        self._search_timer.stop(); self._pending_search=""
+        if self.search is not None:
+            self.search.blockSignals(True); self.search.clear(); self.search.blockSignals(False)
         for combo in self.filter_boxes.values():
             combo.blockSignals(True); combo.setCurrentIndex(0); combo.blockSignals(False)
         columns=list(self._active_filters.keys()); self._active_filters.clear()
         if self._database_mode:
+            if had_search: self.searchDebounced.emit("")
             for column in columns: self.filterChanged.emit(column,"All")
         else:
+            self.proxy.setFilterFixedString("")
             self.proxy.clear_named_filters()
         self._refresh_filter_ui()
+    def _selection_count(self)->int:
+        checked=getattr(self.model,"checked_ids",None)
+        indexes=self.table.selectionModel().selectedRows()
+        if checked is None:return len(indexes)
+        selected_ids=set(checked);unidentified=0
+        for index in indexes:
+            item=self.model.row_item(self.proxy.mapToSource(index).row())
+            raw=(item.get("id",item.get("ID")) if isinstance(item,dict) else getattr(item,"id",None))
+            if raw is None:unidentified+=1
+            else:
+                try:selected_ids.add(int(raw))
+                except (TypeError,ValueError):selected_ids.add(str(raw))
+        return len(selected_ids)+unidentified
+    def _refresh_table_tools(self,*_args):
+        if not hasattr(self,"btn_table_tools") or not hasattr(self,"table"): return
+        count=self._selection_count();active=count>0
+        text=f"{count} Selected ▾" if active else "Select / View ▾"
+        if self.btn_table_tools.text()!=text:self.btn_table_tools.setText(text)
+        if self.btn_table_tools.property("active")!=active:
+            self.btn_table_tools.setProperty("active",active);self.btn_table_tools.style().unpolish(self.btn_table_tools);self.btn_table_tools.style().polish(self.btn_table_tools)
+    def select_all_visible(self):
+        if self.proxy.rowCount()<=0:return
+        if hasattr(self.model,"set_all_visible_checked"):
+            self.model.set_all_visible_checked(True)
+        else:self.table.selectAll()
+        self._refresh_table_tools()
+    def clear_selection(self):
+        if hasattr(self.model,"clear_checked"):
+            self.model.clear_checked()
+        elif hasattr(self.model,"set_all_visible_checked"):
+            self.model.set_all_visible_checked(False)
+        self.table.clearSelection();self._refresh_table_tools()
+    def _show_table_tools(self):
+        if not self._table_preferences_registered:self.install_table_preferences()
+        menu=QMenu(self.btn_table_tools)
+        select_all=menu.addAction("Select All Visible Rows");select_all.setEnabled(self.proxy.rowCount()>0);select_all.triggered.connect(self.select_all_visible)
+        clear=menu.addAction("Clear Selection");clear.setEnabled(self._selection_count()>0);clear.triggered.connect(self.clear_selection)
+        menu.addSeparator()
+        self.table_preferences.populate_display_menu(menu,self.table.objectName())
+        menu.exec(self.btn_table_tools.mapToGlobal(self.btn_table_tools.rect().bottomLeft()))
     def eventFilter(self,obj,event):
-        if obj is self.table and event.type()==QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            indexes=self.table.selectionModel().selectedRows()
-            if indexes:
-                self.table.doubleClicked.emit(indexes[0]); return True
+        if obj is self.table and event.type()==QEvent.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                indexes=self.table.selectionModel().selectedRows()
+                if indexes:
+                    self.table.doubleClicked.emit(indexes[0]); return True
+            if event.key()==Qt.Key.Key_A and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self.select_all_visible();return True
+            if event.key()==Qt.Key.Key_Escape and self._selection_count()>0:
+                self.clear_selection();return True
         return super().eventFilter(obj,event)
     def set_loading(self,loading:bool,message:str="Loading…"):
         if loading: self.loading_overlay.start(message)

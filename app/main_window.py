@@ -204,6 +204,7 @@ class MainWindow(QMainWindow):
 
         self.pages["dashboard"].quickAction.connect(self.on_dashboard_quick_action)
         self.pages["members"].openCollectorRequested.connect(lambda: self.navigate("collector", "Collector"))
+        self.pages["source_groups"].viewMembersRequested.connect(lambda _gid: self.navigate("members", "Member Pool"))
         campaigns = self.pages["campaigns"]
         campaigns.createRequested.connect(self.on_create_campaign_clicked)
         campaigns.editRequested.connect(self.on_edit_campaign)

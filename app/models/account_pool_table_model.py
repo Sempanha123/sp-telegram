@@ -89,6 +89,12 @@ class AccountPoolTableModel(BaseTableModel):
     def checked_account_ids(self):
         return sorted(self.checked_ids)
 
+    def clear_checked(self):
+        self.checked_ids.clear()
+        if self.rows:
+            self.dataChanged.emit(self.index(0, 0), self.index(len(self.rows) - 1, 0), [Qt.ItemDataRole.CheckStateRole])
+        self.checkedChanged.emit()
+
     def value_for_column(self, row, column):
         if not isinstance(row, dict):
             return super().value_for_column(row, column)

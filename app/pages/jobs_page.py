@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QPushButton, QTabWidget, QWidget
+from PySide6.QtWidgets import QFileDialog, QMenu, QMessageBox, QPushButton, QTabWidget, QWidget
 
 from app.dialogs.job_details_dialog import JobDetailsDialog
 from app.dialogs.job_result_dialog import JobResultDialog
@@ -17,7 +17,7 @@ class JobsPage(BaseTablePage):
             "page_jobs", "Jobs", JobTableModel(controller.jobs()), "tbl_jobs",
             [("btn_refresh_jobs", "Refresh"), ("btn_pause_selected_job", "Pause"), ("btn_resume_selected_job", "Resume"),
              ("btn_cancel_selected_job", "Cancel"), ("btn_retry_failed_job", "Retry"), ("btn_view_job_details", "Details"),
-             ("btn_view_job_result", "Result"), ("btn_export_job_results", "Export")],
+             ("btn_view_job_result", "Result"), ("btn_export_job_results", "Export"), ("btn_jobs_more", "More ▾")],
             "le_search_jobs", [], parent,
         )
         self.enable_database_mode(controller.pagination)
@@ -31,12 +31,44 @@ class JobsPage(BaseTablePage):
         self.action_buttons["btn_view_job_details"].clicked.connect(self._details)
         self.action_buttons["btn_view_job_result"].clicked.connect(self._result)
         self.action_buttons["btn_export_job_results"].clicked.connect(self._export)
+        self.action_buttons["btn_jobs_more"].clicked.connect(self._show_more)
+        for key in ("btn_pause_selected_job", "btn_resume_selected_job", "btn_cancel_selected_job", "btn_retry_failed_job", "btn_export_job_results"):
+            self.action_buttons[key].hide()
         self.table.doubleClicked.connect(lambda _i: self._details())
+        self.table.selectionModel().selectionChanged.connect(self._refresh_job_actions)
+        self.model.modelReset.connect(self._refresh_job_actions)
         self.tab_jobs = QTabWidget(); self.tab_jobs.setObjectName("tab_jobs")
         for name in self.TAB_STATUS: self.tab_jobs.addTab(QWidget(), name)
         self.tab_jobs.currentChanged.connect(self._tab_changed); self.layout().insertWidget(1, self.tab_jobs)
         # Compatibility with the Phase-1 object contract. "Cancel" is the Phase-7 user-facing action.
         self.btn_stop_selected_job = QPushButton(self); self.btn_stop_selected_job.setObjectName("btn_stop_selected_job"); self.btn_stop_selected_job.hide(); self.btn_stop_selected_job.clicked.connect(lambda: self._selected_action("cancel"))
+        self._refresh_job_actions()
+
+    def _refresh_job_actions(self, *_args):
+        item = self.selected_item()
+        status = str(getattr(item, "status", "") or "").upper()
+        selected = item is not None
+        self.action_buttons["btn_view_job_details"].setEnabled(selected)
+        self.action_buttons["btn_view_job_result"].setEnabled(selected)
+        self.action_buttons["btn_pause_selected_job"].setEnabled(status == "RUNNING")
+        self.action_buttons["btn_resume_selected_job"].setEnabled(status == "PAUSED")
+        self.action_buttons["btn_cancel_selected_job"].setEnabled(status in {"QUEUED", "RUNNING", "PAUSED"})
+        self.action_buttons["btn_retry_failed_job"].setEnabled(status == "FAILED")
+        self.action_buttons["btn_export_job_results"].setEnabled(bool(self.model.rows))
+
+    def _show_more(self):
+        menu = QMenu(self.action_buttons["btn_jobs_more"])
+        for key in ("btn_pause_selected_job", "btn_resume_selected_job", "btn_retry_failed_job", "btn_export_job_results"):
+            button = self.action_buttons[key]
+            action = menu.addAction(button.text())
+            action.setEnabled(button.isEnabled())
+            action.triggered.connect(lambda _checked=False, b=button: b.click())
+        menu.addSeparator()
+        cancel = self.action_buttons["btn_cancel_selected_job"]
+        action = menu.addAction(cancel.text())
+        action.setEnabled(cancel.isEnabled())
+        action.triggered.connect(lambda _checked=False: cancel.click())
+        menu.exec(self.action_buttons["btn_jobs_more"].mapToGlobal(self.action_buttons["btn_jobs_more"].rect().bottomLeft()))
 
     def _tab_changed(self, index: int):
         name = self.tab_jobs.tabText(index); self.controller.set_status_filter(self.TAB_STATUS.get(name))

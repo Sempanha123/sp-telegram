@@ -64,7 +64,10 @@ class MemberTableModel(BaseTableModel):
         return Qt.CheckState.PartiallyChecked
 
     def checked_member_ids(self):return sorted(self.checked_ids)
-    def clear_checked(self):self.checked_ids.clear();self.checkedChanged.emit()
+    def clear_checked(self):
+        self.checked_ids.clear()
+        if self.rows:self.dataChanged.emit(self.index(0,0),self.index(len(self.rows)-1,0),[Qt.ItemDataRole.CheckStateRole])
+        self.checkedChanged.emit()
 
     def set_privacy_mode(self,enabled:bool):
         self.privacy_mode=bool(enabled); self.layoutChanged.emit()

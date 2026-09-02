@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QDialog, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QMessageBox, QWidget
+from PySide6.QtWidgets import QDialog, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QMenu, QMessageBox, QWidget
 
 from app.dialogs.account_pool_group_assignment_dialog import AccountPoolGroupAssignmentDialog
 from app.dialogs.account_safety_dialog import AccountSafetyDialog
@@ -39,6 +39,7 @@ class AccountPoolPage(BaseTablePage):
             ("btn_account_pool_clear_assignment", "Clear Assignment"),
             ("btn_account_pool_export", "Export"),
             ("btn_account_pool_refresh", "Refresh"),
+            ("btn_account_pool_more", "More ▾"),
         ]
         super().__init__(
             "page_account_pool", "Account Pool", AccountPoolTableModel([]), "tbl_account_pool", actions,
@@ -84,6 +85,9 @@ class AccountPoolPage(BaseTablePage):
         self.action_buttons["btn_account_pool_clear_assignment"].clicked.connect(self._clear_assignments)
         self.action_buttons["btn_account_pool_export"].clicked.connect(self._export)
         self.action_buttons["btn_account_pool_refresh"].clicked.connect(controller.refresh)
+        self.action_buttons["btn_account_pool_more"].clicked.connect(self._show_more)
+        for key in ("btn_account_pool_permissions", "btn_account_pool_tags", "btn_account_pool_groups", "btn_account_pool_clear_assignment"):
+            self.action_buttons[key].hide()
         self._update_actions()
 
     def _install_summary(self):
@@ -161,6 +165,20 @@ class AccountPoolPage(BaseTablePage):
             self.action_buttons[key].setEnabled(selected)
         self.action_buttons["btn_account_pool_groups"].setEnabled(len(ids) == 1)
         self.action_buttons["btn_account_pool_export"].setEnabled(bool(self.model.rows))
+
+    def _show_more(self):
+        menu = QMenu(self.action_buttons["btn_account_pool_more"])
+        for key in ("btn_account_pool_permissions", "btn_account_pool_tags", "btn_account_pool_groups"):
+            button = self.action_buttons[key]
+            action = menu.addAction(button.text())
+            action.setEnabled(button.isEnabled())
+            action.triggered.connect(lambda _checked=False, b=button: b.click())
+        menu.addSeparator()
+        clear = self.action_buttons["btn_account_pool_clear_assignment"]
+        action = menu.addAction(clear.text())
+        action.setEnabled(clear.isEnabled())
+        action.triggered.connect(lambda _checked=False: clear.click())
+        menu.exec(self.action_buttons["btn_account_pool_more"].mapToGlobal(self.action_buttons["btn_account_pool_more"].rect().bottomLeft()))
 
     def _set_enabled(self, enabled):
         ids = self._targets()

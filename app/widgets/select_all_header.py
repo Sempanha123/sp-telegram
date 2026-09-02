@@ -17,6 +17,11 @@ class SelectAllHeader(QHeaderView):
     VISUAL_SIZE = 18
     CORNER_RADIUS = 6
 
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        self.setToolTip("Click the checkbox to select or clear every row on this visible page")
+        self.setAccessibleName("Select all visible rows")
+
     @classmethod
     def _section_palette(cls):
         if is_light():
@@ -67,7 +72,7 @@ class SelectAllHeader(QHeaderView):
 
     def mousePressEvent(self, event):  # noqa: N802
         logical = self.logicalIndexAt(event.position().toPoint())
-        if logical == 0:
+        if event.button() == Qt.MouseButton.LeftButton and logical == 0:
             rect = self.sectionViewportPosition(0)
             section = QRect(rect, 0, self.sectionSize(0), self.height())
             if section.contains(event.position().toPoint()):

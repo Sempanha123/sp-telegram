@@ -90,7 +90,7 @@ def test_shared_table_filters_use_one_aligned_control_row(qapp, isolated_setting
     page = BaseTablePage(
         "page_filter_alignment",
         "Accounts",
-        BaseTableModel([], ["Account"]),
+        BaseTableModel([{"Account": "Example"}], ["Account"]),
         "tbl_filter_alignment",
         [],
         "le_filter_alignment_search",
@@ -104,7 +104,7 @@ def test_shared_table_filters_use_one_aligned_control_row(qapp, isolated_setting
         page.show()
         qapp.processEvents()
 
-        controls = [page.search, *page.filter_boxes.values(), page.btn_clear_filters]
+        controls = [page.search, *page.filter_boxes.values(), page.btn_clear_filters, page.btn_table_tools]
         assert all(control.height() == 40 for control in controls)
         assert page.search_label.text() == "Search"
         assert all(label.height() == page.search_label.height() == 14 for label in page.filter_labels.values())
@@ -114,6 +114,65 @@ def test_shared_table_filters_use_one_aligned_control_row(qapp, isolated_setting
             combo.mapTo(page, QPoint(0, 0)).y() == search_top
             for combo in page.filter_boxes.values()
         )
+        assert page.btn_table_tools.mapTo(page, QPoint(0, 0)).y() == search_top
+    finally:
+        page.close()
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_shared_table_tools_select_clear_and_restore_columns(qapp, isolated_settings):
+    page = BaseTablePage(
+        "page_table_tools",
+        "Groups",
+        BaseTableModel([{"Name": "One", "Status": "Ready"}, {"Name": "Two", "Status": "Ready"}], ["Name", "Status"]),
+        "tbl_table_tools",
+        [],
+        "le_table_tools_search",
+        [],
+    )
+    try:
+        page.show()
+        qapp.processEvents()
+        page.install_table_preferences()
+
+        page.select_all_visible()
+        assert len(page.table.selectionModel().selectedRows()) == 2
+        assert page.btn_table_tools.text() == "2 Selected ▾"
+
+        page.clear_selection()
+        assert not page.table.selectionModel().selectedRows()
+        assert page.btn_table_tools.text() == "Select / View ▾"
+
+        page.table.setColumnHidden(1, True)
+        page.table_preferences.show_all_user_columns(page.table.objectName())
+        assert not page.table.isColumnHidden(1)
+    finally:
+        page.close()
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_search_clear_is_shared_and_empty_tables_hide_table_only_controls(qapp, isolated_settings):
+    page = BaseTablePage(
+        "page_search_clear",
+        "Accounts",
+        BaseTableModel([], ["Account"]),
+        "tbl_search_clear",
+        [],
+        "le_search_clear",
+        [],
+    )
+    try:
+        page.show()
+        page.search.setText("missing")
+        qapp.processEvents()
+        assert page.btn_clear_filters.isVisibleTo(page)
+        assert page.btn_table_tools.isHidden()
+
+        page.btn_clear_filters.click()
+        assert page.search.text() == ""
+        assert page.btn_clear_filters.isHidden()
     finally:
         page.close()
         page.deleteLater()

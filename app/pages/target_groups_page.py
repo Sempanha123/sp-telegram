@@ -29,12 +29,17 @@ class TargetGroupsPage(BaseTablePage):
         self.action_buttons["btn_copy_target_invite_link"].setEnabled(False)
         self.btn_target_more_actions=QPushButton("More ▾");self.btn_target_more_actions.setObjectName("btn_target_more_actions");self.btn_target_more_actions.setProperty("role","ghost");self.page_header.add_action(self.btn_target_more_actions)
         self.menu_target_more=QMenu(self.btn_target_more_actions)
+        self._target_more_actions={}
         menu_actions=(("btn_assign_target_account","Assign Account",self.details),("btn_sync_target_members","Sync Existing Status",self.sync_members),("btn_view_target_members","View Target Members",self.view_members),("btn_copy_target_invite_link","Copy Invite Link",self.copy_invite_link),("btn_view_join_requests","Join Requests",self.view_join_requests),("btn_remove_target_group_flag","Remove Target Flag",self.remove_flag))
         for name,label,callback in menu_actions:
-            self.action_buttons[name].hide();self.menu_target_more.addAction(label,callback)
+            self.action_buttons[name].hide();self._target_more_actions[name]=self.menu_target_more.addAction(label,callback)
+        self.menu_target_more.aboutToShow.connect(self._refresh_more_actions)
         self.btn_target_more_actions.setMenu(self.menu_target_more)
         if not member_controller:
             self.action_buttons["btn_sync_target_members"].setEnabled(False);self.action_buttons["btn_view_target_members"].setEnabled(False)
+    def _refresh_more_actions(self):
+        selected=self.selected_row() is not None
+        for name,action in self._target_more_actions.items():action.setEnabled(selected and self.action_buttons[name].isEnabled())
     def _rows(self,items):
         out=[]
         for g in items:

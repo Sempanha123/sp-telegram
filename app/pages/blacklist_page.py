@@ -12,6 +12,8 @@ class BlacklistPage(BaseTablePage):
         for label in ["Global","Do Not Contact","Target-Specific","Other Exclusions"]:self.tabs.addTab(label)
         self.layout().insertWidget(2,self.tabs);self.tabs.currentChanged.connect(self._tab_changed);self.searchDebounced.connect(controller.set_search);controller.exclusionsChanged.connect(self._replace);self.pageChanged.connect(lambda p:setattr(controller.pagination,"page",p) or controller.refresh());self.pageSizeChanged.connect(lambda n:(setattr(controller.pagination,"page_size",n),setattr(controller.pagination,"page",1),controller.refresh()))
         self.action_buttons["btn_add_blacklist"].clicked.connect(self.add);self.action_buttons["btn_edit_blacklist"].clicked.connect(self.edit);self.action_buttons["btn_remove_blacklist"].clicked.connect(self.remove);self.action_buttons["btn_import_blacklist"].clicked.connect(self.import_csv);self.action_buttons["btn_export_blacklist"].clicked.connect(self.export_csv);self.action_buttons["btn_clear_blacklist_filter"].clicked.connect(lambda:self.search.clear() if self.search else None)
+        # Search clearing now lives beside the search field on every table page.
+        self.action_buttons["btn_clear_blacklist_filter"].hide()
     def _tab_changed(self,index):self._tab_kind=["GLOBAL_BLACKLIST","DO_NOT_CONTACT","TARGET_EXCLUSION","OTHER"][index];self._replace(self.controller.current_items)
     def _filter(self,items):
         if self._tab_kind is None:self._tab_kind="GLOBAL_BLACKLIST"

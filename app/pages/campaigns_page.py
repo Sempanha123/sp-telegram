@@ -105,11 +105,20 @@ class CampaignsPage(BaseTablePage):
     def _action(self,menu,text,obj,slot):a=QAction(text,self);a.setObjectName(obj);a.triggered.connect(slot);menu.addAction(a);return a
     def _menu(self):
         item=self.selected_item();status=str(getattr(item,'status','') or '').upper()
-        m=QMenu(self);self.act_campaign_details=self._action(m,'Open Campaign','act_campaign_details',self._details);m.addSeparator();self.act_campaign_edit=self._action(m,'Edit','act_campaign_edit',self.edit);self.act_campaign_duplicate=self._action(m,'Duplicate','act_campaign_duplicate',self.duplicate);self.act_campaign_preview=self._action(m,'Preview','act_campaign_preview',self.preview);m.addSeparator();self.act_campaign_run=self._action(m,'Run Now','act_campaign_run',self.run);self.act_campaign_pause=self._action(m,'Pause','act_campaign_pause',self.pause);m.addAction('Resume',self.resume);self.act_campaign_cancel=self._action(m,'Cancel','act_campaign_cancel',self.cancel);m.addSeparator();self.act_campaign_schedule=self._action(m,'Open Schedule','act_campaign_schedule',lambda:self.toastRequested.emit('Open Scheduler from the sidebar to edit campaign schedules.','Info'));self.act_campaign_results=self._action(m,'Export Results','act_campaign_results',self._export);self.act_campaign_logs=self._action(m,'View Logs','act_campaign_logs',lambda:self.toastRequested.emit('Use Logs → Campaign to review audit entries.','Info'));m.addSeparator()
+        m=QMenu(self);self.act_campaign_details=self._action(m,'Open Campaign','act_campaign_details',self._details);m.addSeparator();self.act_campaign_edit=self._action(m,'Edit','act_campaign_edit',self.edit);self.act_campaign_duplicate=self._action(m,'Duplicate','act_campaign_duplicate',self.duplicate);self.act_campaign_preview=self._action(m,'Preview','act_campaign_preview',self.preview);m.addSeparator();self.act_campaign_run=self._action(m,'Run Now','act_campaign_run',self.run);self.act_campaign_pause=self._action(m,'Pause','act_campaign_pause',self.pause);self.act_campaign_resume=self._action(m,'Resume','act_campaign_resume',self.resume);self.act_campaign_cancel=self._action(m,'Cancel','act_campaign_cancel',self.cancel);m.addSeparator();self.act_campaign_results=self._action(m,'Export Results','act_campaign_results',self._export);m.addSeparator()
         if status=='ARCHIVED':self.act_campaign_unarchive=self._action(m,'Unarchive','act_campaign_unarchive',self._unarchive)
         else:self.act_campaign_archive=self._action(m,'Archive','act_campaign_archive',self._archive)
         delete_label='Delete Draft' if status in {'DRAFT','CANCELLED'} else 'Delete'
-        self.act_campaign_delete=self._action(m,delete_label,'act_campaign_delete',self._delete);return m
+        self.act_campaign_delete=self._action(m,delete_label,'act_campaign_delete',self._delete)
+        selected=item is not None
+        for action in (self.act_campaign_details,self.act_campaign_edit,self.act_campaign_duplicate,self.act_campaign_preview,self.act_campaign_results,self.act_campaign_delete):action.setEnabled(selected)
+        self.act_campaign_run.setEnabled(selected and status not in {'RUNNING','ARCHIVED'})
+        self.act_campaign_pause.setEnabled(selected and status=='RUNNING')
+        self.act_campaign_resume.setEnabled(selected and status=='PAUSED')
+        self.act_campaign_cancel.setEnabled(selected and status in {'SCHEDULED','RUNNING','PAUSED'})
+        archive=getattr(self,'act_campaign_unarchive',None) if status=='ARCHIVED' else getattr(self,'act_campaign_archive',None)
+        if archive is not None:archive.setEnabled(selected)
+        return m
     def _show_more(self):self._menu().exec(self.action_buttons['btn_more_campaign_actions'].mapToGlobal(self.action_buttons['btn_more_campaign_actions'].rect().bottomLeft()))
     def _context(self,pos):
         if self.table.indexAt(pos).isValid():self._menu().exec(self.table.viewport().mapToGlobal(pos))

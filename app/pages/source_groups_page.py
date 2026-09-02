@@ -1,4 +1,5 @@
 from __future__ import annotations
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QMenu,QMessageBox,QPushButton
 from app.dialogs.add_group_dialog import AddGroupDialog
 from app.dialogs.group_details_dialog import GroupDetailsDialog
@@ -7,6 +8,7 @@ from app.pages.base_table_page import BaseTablePage
 from app.widgets.avatar_delegate import AvatarDelegate
 
 class SourceGroupsPage(BaseTablePage):
+    viewMembersRequested=Signal(int)
     COLUMNS=["Group","Username","Type","Access","Members","Primary Account","Account Role","Member Access","Stored Members","Last Member Sync","Sync Status","Last Sync","Status"]
     def __init__(self,controller,member_controller=None,parent=None,*,avatar_service=None):
         self.controller=controller;self.member_controller=member_controller;self.avatar_service=avatar_service;items,total=controller.get_scoped("source",1,100);controller.pagination.total_items=total
@@ -21,13 +23,18 @@ class SourceGroupsPage(BaseTablePage):
         # operations into one compact menu so 1180px layouts do not clip labels.
         self.btn_source_more_actions=QPushButton("More ▾");self.btn_source_more_actions.setObjectName("btn_source_more_actions");self.btn_source_more_actions.setProperty("role","ghost");self.page_header.add_action(self.btn_source_more_actions)
         self.menu_source_more=QMenu(self.btn_source_more_actions)
+        self._source_more_actions={}
         menu_actions=(("btn_sync_source_members","Sync Members",self.member_sync),("btn_view_source_members","View Members",self.view_members),("btn_source_member_history","Sync History",self.history),("btn_remove_source_group_flag","Remove Source Flag",self.remove_flag))
         for name,label,callback in menu_actions:
-            self.action_buttons[name].hide();self.menu_source_more.addAction(label,callback)
+            self.action_buttons[name].hide();self._source_more_actions[name]=self.menu_source_more.addAction(label,callback)
         self.action_buttons["btn_collect_selected_source"].hide()
+        self.menu_source_more.aboutToShow.connect(self._refresh_more_actions)
         self.btn_source_more_actions.setMenu(self.menu_source_more)
         if not member_controller:
             for name in ["btn_sync_source_members","btn_collect_selected_source","btn_view_source_members","btn_source_member_history"]:self.action_buttons[name].setEnabled(False)
+    def _refresh_more_actions(self):
+        selected=self.selected_row() is not None
+        for name,action in self._source_more_actions.items():action.setEnabled(selected and self.action_buttons[name].isEnabled())
     def _rows(self,items):
         out=[]
         for g in items:
@@ -52,7 +59,9 @@ class SourceGroupsPage(BaseTablePage):
         if QMessageBox.question(self,"Sync Members",f"Start an authorized member sync using {primary.account_name or 'the primary account'}?\n\nOnly participants Telegram exposes to this account will be read. Hidden lists will not be bypassed.")==QMessageBox.StandardButton.Yes:self.member_controller.on_start_sync(gid,primary.account_id)
     def view_members(self):
         gid=self._id()
-        if gid and self.member_controller:self.member_controller.set_source(gid);QMessageBox.information(self,"Source Members","The Member Pool filter has been set to this source. Open Member Pool to view the records.")
+        if gid and self.member_controller:
+            self.member_controller.set_source(gid)
+            self.viewMembersRequested.emit(int(gid))
     def history(self):
         gid=self._id()
         if not gid or not self.member_controller:return

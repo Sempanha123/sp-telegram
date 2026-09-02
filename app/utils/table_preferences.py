@@ -81,6 +81,7 @@ class TablePreferenceManager(QObject):
     """
 
     preferencesChanged = Signal()
+    CONTROL_COLUMNS = {"Select", "ID", "More", "Actions"}
 
     def __init__(self, settings: QSettings | None = None, parent=None):
         super().__init__(parent)
@@ -154,6 +155,19 @@ class TablePreferenceManager(QObject):
             table, columns, _defaults = registered
             if column in columns:
                 table.setColumnHidden(columns.index(column), not bool(visible))
+        self.preferencesChanged.emit()
+
+    def show_all_user_columns(self, table_key: str) -> None:
+        """Reveal every user-facing column while keeping control/internal columns untouched."""
+        registered = self._registered.get(table_key)
+        if not registered:
+            return
+        table, columns, _defaults = registered
+        for index, column in enumerate(columns):
+            if column in self.CONTROL_COLUMNS:
+                continue
+            self.settings.setValue(self._visibility_key(table_key, column), True)
+            table.setColumnHidden(index, False)
         self.preferencesChanged.emit()
 
     def register(
@@ -283,16 +297,15 @@ class TablePreferenceManager(QObject):
             table.setColumnWidth(logical, max(floor, min(int(max_width), width)))
         self.save_header_state(table_key)
 
-    def show_header_menu(self, table_key: str, pos) -> None:
+    def populate_display_menu(self, menu: QMenu, table_key: str) -> bool:
+        """Add column display actions to ``menu`` for right-click and button use."""
         registered = self._registered.get(table_key)
         if not registered:
-            return
-        table, columns, defaults = registered
-        header = table.horizontalHeader()
-        menu = QMenu(header)
+            return False
+        table, columns, _defaults = registered
         columns_menu = menu.addMenu("Columns")
         for column in columns:
-            if column in {"Select", "ID", "More", "Actions"}:
+            if column in self.CONTROL_COLUMNS:
                 continue
             action = QAction(column, columns_menu)
             action.setCheckable(True)
@@ -300,9 +313,28 @@ class TablePreferenceManager(QObject):
             action.setChecked(not table.isColumnHidden(idx))
             action.toggled.connect(lambda checked, c=column: self.set_column_visible(table_key, c, checked))
             columns_menu.addAction(action)
+        show_all = menu.addAction("Show All Columns")
+        show_all.triggered.connect(lambda: self.show_all_user_columns(table_key))
         menu.addSeparator()
         fit = menu.addAction("Auto Fit Columns")
         fit.triggered.connect(lambda: self.auto_fit(table_key))
         reset = menu.addAction("Reset Column Layout")
         reset.triggered.connect(lambda: self.reset_table(table_key))
-        menu.exec(header.mapToGlobal(pos))
+        return True
+
+    def create_display_menu(self, table_key: str, parent=None) -> QMenu | None:
+        menu = QMenu(parent)
+        if not self.populate_display_menu(menu, table_key):
+            menu.deleteLater()
+            return None
+        return menu
+
+    def show_header_menu(self, table_key: str, pos) -> None:
+        registered = self._registered.get(table_key)
+        if not registered:
+            return
+        table, _columns, _defaults = registered
+        header = table.horizontalHeader()
+        menu = self.create_display_menu(table_key, header)
+        if menu is not None:
+            menu.exec(header.mapToGlobal(pos))
