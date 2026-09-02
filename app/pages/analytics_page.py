@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QDate, Signal
 from PySide6.QtWidgets import (
     QComboBox, QDateEdit, QFileDialog, QGridLayout,
-    QHBoxLayout, QPushButton, QTabWidget, QVBoxLayout, QWidget,
+    QHBoxLayout, QPushButton, QSizePolicy, QTabWidget, QVBoxLayout, QWidget,
 )
 from app.widgets.calendar_utils import configure_calendar_popup
 from app.widgets.charts import BarChartWidget, DonutChartWidget, TrendChartWidget
@@ -29,7 +29,12 @@ class AnalyticsPage(QWidget):
         root.setSpacing(14)
         root.addWidget(PageHeaderWidget("Analytics", "Local account, group, member, campaign and job performance metrics."))
 
-        filters = QHBoxLayout()
+        self.filter_host = QWidget()
+        self.filter_host.setObjectName("filter_bar")
+        self.filter_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        filters = QHBoxLayout(self.filter_host)
+        filters.setContentsMargins(0, 0, 0, 0)
+        filters.setSpacing(8)
         self.cmb_analytics_period = QComboBox()
         self.cmb_analytics_period.setObjectName("cmb_analytics_period")
         self.cmb_analytics_period.addItems(["7 days", "30 days", "90 days", "Custom"])
@@ -47,9 +52,10 @@ class AnalyticsPage(QWidget):
         for w in [self.cmb_analytics_period, self.date_analytics_from, self.date_analytics_to,
                   self.cmb_analytics_campaign, self.cmb_analytics_group, self.cmb_analytics_account,
                   self.btn_refresh_analytics, self.btn_export_analytics]:
+            w.setFixedHeight(40)
             filters.addWidget(w)
         filters.addStretch()
-        root.addLayout(filters)
+        root.addWidget(self.filter_host)
 
         self.tab_analytics = QTabWidget(); self.tab_analytics.setObjectName("tab_analytics")
         self._charts: dict[tuple[str, str], BarChartWidget | DonutChartWidget | TrendChartWidget] = {}
@@ -241,9 +247,9 @@ class AnalyticsPage(QWidget):
             if self._license_lock is None:
                 self._license_lock=LockedFeatureWidget("Analytics","Campaign analytics is available with SP Telegram Pro; full analytics is available with SP Telegram Ultimate.","PRO",["Basic Campaign Analytics","SP Telegram Ultimate adds full account/group/member/job analytics"],self)
                 self._license_lock.upgradeRequested.connect(self.licenseUpgradeRequested);self.root_layout.insertWidget(1,self._license_lock)
-            self._license_lock.show();self.tab_analytics.hide();self.btn_refresh_analytics.setEnabled(False);self.btn_export_analytics.setEnabled(False);return False
+            self._license_lock.show();self.filter_host.hide();self.tab_analytics.hide();self.btn_refresh_analytics.setEnabled(False);self.btn_export_analytics.setEnabled(False);return False
         if self._license_lock is not None:self._license_lock.hide()
-        self.tab_analytics.show();self.btn_refresh_analytics.setEnabled(True);self.btn_export_analytics.setEnabled(True)
+        self.filter_host.show();self.tab_analytics.show();self.btn_refresh_analytics.setEnabled(True);self.btn_export_analytics.setEnabled(True)
         for i in range(self.tab_analytics.count()):
             name=self.tab_analytics.tabText(i);enabled=full or name=="Campaigns";self.tab_analytics.setTabEnabled(i,enabled);self.tab_analytics.setTabToolTip(i,"" if enabled else "Full analytics requires SP Telegram Ultimate.")
         if not full:

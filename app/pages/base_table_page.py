@@ -4,7 +4,7 @@ from typing import Any
 import logging
 
 from PySide6.QtCore import QEvent, QSettings, QSortFilterProxyModel, QTimer, Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QPushButton, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QPushButton, QSizePolicy, QTableView, QVBoxLayout, QWidget
 
 from app.icons import IconManager
 from app.models.base_table_model import BaseTableModel
@@ -43,6 +43,9 @@ PAGE_SUBTITLES = {
     "Alerts": "Review incidents, warnings and items that need operator attention.",
     "Logs": "Monitor application, Telegram, error and audit activity.",
 }
+
+FILTER_CONTROL_HEIGHT = 40
+FILTER_LABEL_HEIGHT = 14
 
 
 class MultiFilterProxyModel(QSortFilterProxyModel):
@@ -92,17 +95,20 @@ class BaseTablePage(QWidget):
             btn=QPushButton(text); btn.setObjectName(obj); self._style_action_button(btn,obj,text); self.action_buttons[obj]=btn; self.page_header.add_action(btn)
         root.addWidget(self.page_header)
 
-        filter_host=QWidget(); self.filter_host=filter_host; filter_host.setObjectName("filter_bar"); filter_row=QHBoxLayout(filter_host); filter_row.setContentsMargins(0,0,0,0); filter_row.setSpacing(8); self.search=None
+        filter_host=QWidget(); self.filter_host=filter_host; filter_host.setObjectName("filter_bar"); filter_host.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Maximum); filter_row=QHBoxLayout(filter_host); filter_row.setContentsMargins(0,0,0,0); filter_row.setSpacing(8); filter_row.setAlignment(Qt.AlignmentFlag.AlignBottom); self.search=None; self.search_label=None
         if search_object:
             placeholder=f"Search {title.lower()}…" if title not in {"Logs"} else "Search logs…"
-            self.search=SearchBar(placeholder); self.search.setObjectName(search_object); self.search.setMinimumWidth(300); self.search.textChanged.connect(self._on_search); filter_row.addWidget(self.search,2)
+            search_host=QWidget(); search_host.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Maximum); search_column=QVBoxLayout(search_host); search_column.setContentsMargins(0,0,0,0); search_column.setSpacing(3)
+            self.search_label=QLabel("Search"); self.search_label.setProperty("muted",True); self.search_label.setProperty("filterLabel",True); self.search_label.setFixedHeight(FILTER_LABEL_HEIGHT)
+            self.search=SearchBar(placeholder); self.search.setObjectName(search_object); self.search.setMinimumWidth(300); self.search.setFixedHeight(FILTER_CONTROL_HEIGHT); self.search.textChanged.connect(self._on_search)
+            search_column.addWidget(self.search_label); search_column.addWidget(self.search); filter_row.addWidget(search_host,2,Qt.AlignmentFlag.AlignBottom)
         self.filter_boxes={}; self.filter_labels={}; self._filter_combos={}; self._active_filters={}
         for obj,column,values in filters or []:
             host=QWidget(); v=QVBoxLayout(host); v.setContentsMargins(0,0,0,0); v.setSpacing(3)
-            label=QLabel(column); label.setProperty("muted",True); label.setProperty("filterLabel",True)
-            combo=QComboBox(); combo.setObjectName(obj); combo.addItems(["All",*values]); combo.setMinimumWidth(125); combo.currentTextChanged.connect(lambda value,c=column:self._on_filter(c,value))
-            v.addWidget(label); v.addWidget(combo); self.filter_boxes[obj]=combo; self.filter_labels[obj]=label; self._filter_combos[column]=combo; setattr(self,obj,combo); filter_row.addWidget(host)
-        self.btn_clear_filters=QPushButton("Clear Filters"); self.btn_clear_filters.setObjectName("btn_clear_filters"); self.btn_clear_filters.setProperty("role","ghost"); self.btn_clear_filters.setIcon(IconManager.get("close")); self.btn_clear_filters.setToolTip("Reset all filters to All"); self.btn_clear_filters.hide(); self.btn_clear_filters.clicked.connect(self.clear_filters); filter_row.addWidget(self.btn_clear_filters)
+            label=QLabel(column); label.setProperty("muted",True); label.setProperty("filterLabel",True); label.setFixedHeight(FILTER_LABEL_HEIGHT)
+            combo=QComboBox(); combo.setObjectName(obj); combo.addItems(["All",*values]); combo.setMinimumWidth(125); combo.setFixedHeight(FILTER_CONTROL_HEIGHT); combo.currentTextChanged.connect(lambda value,c=column:self._on_filter(c,value))
+            v.addWidget(label); v.addWidget(combo); self.filter_boxes[obj]=combo; self.filter_labels[obj]=label; self._filter_combos[column]=combo; setattr(self,obj,combo); filter_row.addWidget(host,0,Qt.AlignmentFlag.AlignBottom)
+        self.btn_clear_filters=QPushButton("Clear Filters"); self.btn_clear_filters.setObjectName("btn_clear_filters"); self.btn_clear_filters.setProperty("role","ghost"); self.btn_clear_filters.setIcon(IconManager.get("close")); self.btn_clear_filters.setToolTip("Reset all filters to All"); self.btn_clear_filters.setFixedHeight(FILTER_CONTROL_HEIGHT); self.btn_clear_filters.hide(); self.btn_clear_filters.clicked.connect(self.clear_filters); filter_row.addWidget(self.btn_clear_filters,0,Qt.AlignmentFlag.AlignBottom)
         filter_row.addStretch(); root.addWidget(filter_host)
 
         self.table=QTableView(); self.table.setObjectName(table_object); self.table.setModel(self.proxy); self.table.setSortingEnabled(True); self.table.setAlternatingRowColors(False); self.table.setShowGrid(False)
@@ -192,7 +198,7 @@ class BaseTablePage(QWidget):
             if feature_key is not None:
                 self._license_lock.setProperty("feature_key", str(feature_key))
             if action_text:
-                button = getattr(self._license_lock, "btn_upgrade", None)
+                button = getattr(self._license_lock, "btn_upgrade_feature", None)
                 if button is not None:
                     button.setText(action_text)
 

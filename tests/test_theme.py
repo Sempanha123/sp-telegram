@@ -148,3 +148,27 @@ def test_svg_icons_follow_the_application_palette(qapp) -> None:
     dark_value = average_lightness(icon.pixmap(20, 20))
 
     assert dark_value > light_value + 80
+
+
+def test_page_header_and_locked_feature_cannot_expand_vertically(qapp) -> None:
+    from PySide6.QtWidgets import QSizePolicy
+
+    from app.widgets.locked_feature import LockedFeatureWidget
+    from app.widgets.page_header import PageHeaderWidget
+
+    header = PageHeaderWidget("Campaigns", "Create and manage campaigns.")
+    locked = LockedFeatureWidget(
+        "Campaigns",
+        "Upgrade to create campaigns.",
+        "PRO",
+        ["Managed-group campaigns", "Media posts"],
+    )
+    try:
+        assert header.maximumHeight() == 104
+        assert header.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Maximum
+        assert locked.maximumHeight() == 320
+        assert locked.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Maximum
+    finally:
+        header.deleteLater()
+        locked.deleteLater()
+        qapp.processEvents()

@@ -1,13 +1,17 @@
 from __future__ import annotations
 from PySide6.QtCore import Signal,Qt
-from PySide6.QtWidgets import QFrame,QHBoxLayout,QLabel,QPushButton,QVBoxLayout
+from PySide6.QtWidgets import QFrame,QHBoxLayout,QLabel,QPushButton,QSizePolicy,QVBoxLayout
 from app.icons import IconManager
 from app.widgets.plan_badge import PlanBadge
 class LockedFeatureWidget(QFrame):
     upgradeRequested=Signal(str)
     def __init__(self,title='Feature Locked',description='',required_plan='PRO',feature_list=None,parent=None):
         super().__init__(parent);self.setObjectName('locked_feature_widget');self.setProperty('lockedFeature',True);self.required_plan=required_plan
-        root=QVBoxLayout(self);root.setContentsMargins(28,28,28,28);root.setSpacing(12);root.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Keep the upgrade notice compact and anchored below the page header.
+        # A Maximum vertical policy is important when the licensed page body is
+        # hidden because there is otherwise no expanding table to consume space.
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Maximum);self.setMaximumHeight(320)
+        root=QVBoxLayout(self);root.setContentsMargins(24,22,24,22);root.setSpacing(10);root.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon=QLabel();IconManager.bind_label(icon,'lock',30);icon.setAlignment(Qt.AlignmentFlag.AlignCenter);root.addWidget(icon)
         row=QHBoxLayout();row.addStretch();name=QLabel(title);name.setProperty('lockedTitle',True);row.addWidget(name);row.addWidget(PlanBadge(required_plan));row.addStretch();root.addLayout(row)
         desc=QLabel(description);desc.setWordWrap(True);desc.setAlignment(Qt.AlignmentFlag.AlignCenter);desc.setProperty('secondary',True);desc.setMaximumWidth(520);root.addWidget(desc)

@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
         self._page_keys = []
         self._operations_paused = False
         self._privacy_mode = bool(context.settings_service.get("privacy_mode", False))
+        self._shutdown_requested = False
         self._lock_dialog_open = False
         self._lock_paused_operations = False
         self.localization = LocalizationManager(context.settings_service.get("language", "English"))
@@ -1113,6 +1114,10 @@ class MainWindow(QMainWindow):
             box.exec()
             if box.clickedButton() in {keep, cancel}:
                 event.ignore(); return
+        # QApplication does not exit merely because a transient/child window
+        # disappears.  Mark only this confirmed MainWindow close as an
+        # intentional shutdown; main.py uses the flag for diagnostics.
+        self._shutdown_requested = True
         self.context.operations_manager.begin_shutdown()
         self.settings.setValue("window/geometry", self.saveGeometry())
         self.settings.setValue("window/sidebar_collapsed", self.sidebar.is_collapsed())
@@ -1132,3 +1137,5 @@ class MainWindow(QMainWindow):
                 pass
         self.context.close()
         super().closeEvent(event)
+        if event.isAccepted() and isinstance(app, QApplication):
+            QTimer.singleShot(0, app.quit)

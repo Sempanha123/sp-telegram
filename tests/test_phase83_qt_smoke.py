@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QPoint, QObject, Signal
 from PySide6.QtWidgets import QPushButton
 
 from app.application_context import ApplicationContext
@@ -82,6 +82,73 @@ def test_geometry_tokens_match_qt_integer_apis(qapp, isolated_settings):
         page.btn_clear_filters.click()
         assert page.filter_boxes["cmb_test_status"].currentText() == "All"
     finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_shared_table_filters_use_one_aligned_control_row(qapp, isolated_settings):
+    page = BaseTablePage(
+        "page_filter_alignment",
+        "Accounts",
+        BaseTableModel([], ["Account"]),
+        "tbl_filter_alignment",
+        [],
+        "le_filter_alignment_search",
+        [
+            ("cmb_filter_health", "Health", ["Healthy"]),
+            ("cmb_filter_connection", "Connection", ["Connected"]),
+        ],
+    )
+    try:
+        page.resize(1100, 700)
+        page.show()
+        qapp.processEvents()
+
+        controls = [page.search, *page.filter_boxes.values(), page.btn_clear_filters]
+        assert all(control.height() == 40 for control in controls)
+        assert page.search_label.text() == "Search"
+        assert all(label.height() == page.search_label.height() == 14 for label in page.filter_labels.values())
+
+        search_top = page.search.mapTo(page, QPoint(0, 0)).y()
+        assert all(
+            combo.mapTo(page, QPoint(0, 0)).y() == search_top
+            for combo in page.filter_boxes.values()
+        )
+    finally:
+        page.close()
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_locked_table_page_stays_compact_at_large_window_sizes(qapp, isolated_settings):
+    page = BaseTablePage(
+        "page_locked_layout",
+        "Campaigns",
+        BaseTableModel([], ["Campaign"]),
+        "tbl_locked_layout",
+        [("btn_create_locked", "Create")],
+        "le_locked_search",
+        [("cmb_locked_status", "Status", ["Ready"])],
+    )
+    try:
+        page.set_feature_lock(
+            True,
+            title="Campaigns",
+            description="Upgrade to create campaigns.",
+            feature_list=["Managed-group campaigns", "Media posts"],
+            action_text="View Pro Plan",
+        )
+        page.resize(1200, 900)
+        page.show()
+        qapp.processEvents()
+
+        assert page.page_header.height() <= 104
+        assert page._license_lock.height() <= 320
+        assert page._license_lock.geometry().top() < 180
+        assert page.filter_host.isHidden()
+        assert page._license_lock.btn_upgrade_feature.text() == "View Pro Plan"
+    finally:
+        page.close()
         page.deleteLater()
         qapp.processEvents()
 
