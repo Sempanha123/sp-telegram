@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QDialog,QHBoxLayout,QLabel,QMessageBox,QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout
+from PySide6.QtWidgets import QAbstractItemView,QDialog,QHBoxLayout,QLabel,QMessageBox,QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout
 from app.dialogs.dialog_compat import *
 class DeviceManagementDialog(QDialog):
     deactivateRequested=Signal(str)
