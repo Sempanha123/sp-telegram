@@ -30,7 +30,7 @@ QLabel[navSection="true"] { color: #8491A9; font-size: 10px; font-weight: 700; p
 QPushButton[nav="true"] { min-height: 42px; text-align: left; background: transparent; border: 1px solid transparent; color: #475569; padding: 0 12px; border-radius: 9px; margin: 1px 3px; }
 QPushButton[nav="true"]:hover { background: #F1F4FA; color: #172033; }
 QPushButton[nav="true"]:focus { border-color: #A5B4FC; }
-QPushButton[nav="true"]:checked { background: #F0F1FC; color: #4945A8; font-weight: 700; border-left: 3px solid #6D5FD0; }
+QPushButton[nav="true"]:checked { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #EEEAFE, stop:1 #F4F8FD); color: #4945A8; font-weight: 700; border-left: 3px solid #6D5FD0; }
 QPushButton[nav="true"][collapsed="true"] { padding: 0; text-align: center; min-width: 44px; max-width: 44px; margin: 1px 2px; }
 QLabel#lbl_sidebar_badge { background: #E9E7FD; color: #4446B8; border-radius: 8px; min-width: 16px; padding: 1px 5px; font-size: 10px; font-weight: 700; }
 QLabel#lbl_brand_icon {
@@ -294,14 +294,20 @@ QTabWidget#tab_settings QTabBar::tab {
     min-width: 150px;
     text-align: left;
     padding: 12px 16px;
-    border-radius: 12px 12px 0 0;
-    margin: 1px 8px 1px 0;
+    border-radius: 10px;
+    margin: 2px 8px 2px 0;
 }
 QTabWidget#tab_settings QTabBar::tab:selected {
-    background: rgba(91, 92, 226, 22);
+    background: #F0EFFC;
     border: 0;
+    border-left: 2px solid #6D5FD0;
     color: #4446B8;
 }
+QWidget#page_settings { background: #F5F7FB; }
+QLineEdit#le_settings_search:focus { border-color: #6D5FD0; background: #FFFFFF; }
+QTabWidget#tab_settings::pane { background: #FFFFFF; border: 1px solid #D8DDF0; border-top: 2px solid #8B7CFF; border-radius: 14px; }
+QScrollArea#settings_tab_scroll { background: #FFFFFF; border: 0; }
+QScrollArea#settings_tab_scroll > QWidget > QWidget, QWidget#settings_tab_page { background: #FFFFFF; }
 
 /* ---------- Cards and summaries ---------- */
 QFrame[summaryCard="true"] {

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QUrl, Signal
+from PySide6.QtCore import QSettings, QUrl, Signal, Qt
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout, QInputDialog,
-    QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTabWidget,
+    QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout, QInputDialog,
+    QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QTabWidget,
     QVBoxLayout, QWidget,
 )
 
@@ -100,9 +100,23 @@ class SettingsPage(QWidget):
         self.tablePreferencesChanged.emit()
 
     def _tab(self, name: str):
-        widget = QWidget(); form = QFormLayout(widget)
+        widget = QWidget()
+        widget.setObjectName("settings_tab_page")
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        form = QFormLayout(widget)
+        form.setContentsMargins(22, 18, 22, 22)
+        form.setHorizontalSpacing(24)
+        form.setVerticalSpacing(12)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        scroll = QScrollArea()
+        scroll.setObjectName("settings_tab_scroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(widget)
         self.tab_indices[name.lower()] = self.tab_settings.count()
-        self.tab_settings.addTab(widget, name)
+        self.tab_settings.addTab(scroll, name)
         return form
 
     def _filter_settings_tabs(self, text: str):
@@ -252,7 +266,7 @@ class SettingsPage(QWidget):
         self.btn_restore_backup = QPushButton("Restore Backup"); self.btn_restore_backup.setObjectName("btn_restore_backup")
         self.btn_verify_backup = QPushButton("Verify Backup"); self.btn_verify_backup.setObjectName("btn_verify_backup")
         f.addRow("Backup Location", self._line_with_button(self.le_backup_directory, self.btn_browse_backup_directory)); f.addRow("", self.chk_auto_backup); f.addRow("Frequency", self.cmb_backup_frequency); f.addRow("Keep last", self.spin_backup_retention_count)
-        row = QWidget(); h = QHBoxLayout(row); h.setContentsMargins(0,0,0,0)
+        row = QWidget(); row.setProperty("transparentHost",True); h = QHBoxLayout(row); h.setContentsMargins(0,0,0,0)
         for b in (self.btn_backup_now, self.btn_open_backup_folder, self.btn_verify_backup, self.btn_restore_backup): h.addWidget(b)
         f.addRow(row)
         note = QLabel("Normal backups include the SQLite database and sanitized application configuration. Telegram .session authorization files are excluded by default."); note.setWordWrap(True); note.setProperty("muted", True); f.addRow(note)
@@ -305,7 +319,7 @@ class SettingsPage(QWidget):
 
     @staticmethod
     def _line_with_button(line, button):
-        host = QWidget(); h = QHBoxLayout(host); h.setContentsMargins(0, 0, 0, 0); h.addWidget(line); h.addWidget(button); return host
+        host = QWidget(); host.setProperty("transparentHost",True); h = QHBoxLayout(host); h.setContentsMargins(0, 0, 0, 0); h.addWidget(line); h.addWidget(button); return host
 
     def open_tab(self, name: str):
         idx = self.tab_indices.get(name.lower())

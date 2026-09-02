@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QObject, Signal
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtCore import QPoint, QObject, Signal, Qt
+from PySide6.QtWidgets import QHeaderView, QPushButton, QScrollArea
 
 from app.application_context import ApplicationContext
 from app.main_window import MainWindow
@@ -11,6 +11,7 @@ from app.models.base_table_model import BaseTableModel
 from app.pages.base_table_page import BaseTablePage
 from app.pages.operations_page import OperationsPage
 from app.styles.tokens import PAGE_PADDING, TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT
+from app.widgets.sidebar import Sidebar
 
 
 class _OperationsManager:
@@ -83,6 +84,24 @@ def test_geometry_tokens_match_qt_integer_apis(qapp, isolated_settings):
         assert page.filter_boxes["cmb_test_status"].currentText() == "All"
     finally:
         page.deleteLater()
+        qapp.processEvents()
+
+
+def test_collapsed_sidebar_keeps_icons_visible_without_a_scrollbar(qapp, isolated_settings):
+    sidebar = Sidebar()
+    try:
+        sidebar.set_collapsed(True)
+        sidebar.show()
+        qapp.processEvents()
+
+        margins = sidebar.root_layout.contentsMargins()
+        assert sidebar.width() == sidebar.compact_width == 60
+        assert (margins.left(), margins.right()) == (4, 4)
+        assert sidebar.nav_scroll.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        assert sidebar._buttons["settings"].width() <= 44
+    finally:
+        sidebar.close()
+        sidebar.deleteLater()
         qapp.processEvents()
 
 
@@ -243,6 +262,14 @@ def test_main_window_constructs_and_navigates_all_pages(
             qapp.processEvents()
             assert window.current_key() == key
             assert window.stack_main_pages.currentWidget() is window.pages[key]
+
+        settings = window.pages["settings"]
+        first_settings_tab = settings.tab_settings.widget(0)
+        assert isinstance(first_settings_tab, QScrollArea)
+        assert first_settings_tab.widget().objectName() == "settings_tab_page"
+
+        health_header = window.pages["account_health"].table.horizontalHeader()
+        assert health_header.sectionResizeMode(0) == QHeaderView.ResizeMode.Interactive
 
         assert not [
             button.objectName()

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtWidgets import QHeaderView
+
 from app.models.base_table_model import BaseTableModel
 from app.pages.base_table_page import BaseTablePage
 from app.utils.formatters import format_local_datetime
@@ -34,6 +36,10 @@ class AccountHealthPage(BaseTablePage):
                 ),
             )
             self.table.verticalHeader().setDefaultSectionSize(44)
+        # The avatar identity column stays interactive: Stretch mode makes a
+        # section fill the viewport but prevents users from resizing it.
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.table.setColumnWidth(0, 210)
         self.table.setColumnHidden(columns.index("Username"), True)
         self.action_buttons["btn_health_check_all"].clicked.connect(controller.run_health_check_all)
         self.action_buttons["btn_health_check_selected"].clicked.connect(self._check_selected)

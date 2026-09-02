@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtCore import QTimer, Signal, Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QButtonGroup, QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.branding import brand_logo_pixmap, brand_mark_pixmap
 from app.constants import NAV_ITEMS
@@ -53,10 +54,15 @@ class Sidebar(QFrame):
         self._section_labels: list[QLabel] = []
         self.setFixedWidth(self.expanded_width)
 
-        root = QVBoxLayout(self); root.setContentsMargins(10, 14, 10, 10); root.setSpacing(6)
+        root = QVBoxLayout(self); self.root_layout=root; root.setContentsMargins(10, 14, 10, 10); root.setSpacing(6)
         header = QFrame(); header.setObjectName("sidebar_header"); header_layout = QHBoxLayout(header); header_layout.setContentsMargins(0, 0, 0, 8); header_layout.setSpacing(10)
         self.lbl_brand_icon = QLabel(); self.lbl_brand_icon.setObjectName("lbl_brand_icon"); self.lbl_brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter); self.lbl_brand_icon.setFixedSize(54,44); self.lbl_brand_icon.setPixmap(brand_logo_pixmap()); self.lbl_brand_icon.setToolTip("SP Cambo")
         self.lbl_brand_icon.setAccessibleName("SP Cambo logo")
+        brand_glow = QGraphicsDropShadowEffect(self.lbl_brand_icon)
+        brand_glow.setBlurRadius(18)
+        brand_glow.setOffset(0, 0)
+        brand_glow.setColor(QColor(139, 92, 246, 105))
+        self.lbl_brand_icon.setGraphicsEffect(brand_glow)
         brand_text = QWidget(); brand_text.setObjectName("sidebar_brand_text"); brand_text.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); brand_text.setAutoFillBackground(False)
         brand_layout = QVBoxLayout(brand_text); brand_layout.setContentsMargins(0,0,0,0); brand_layout.setSpacing(0)
         self.lbl_app_name = QLabel("SP Telegram"); self.lbl_app_name.setObjectName("lbl_app_name"); self.lbl_app_name.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); self.lbl_app_name.setAutoFillBackground(False)
@@ -75,14 +81,16 @@ class Sidebar(QFrame):
         self.btn_toggle_sidebar.clicked.connect(self.toggle)
         root.addWidget(self.btn_toggle_sidebar)
 
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll = QScrollArea(); self.nav_scroll=scroll; scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # Keep the sidebar surface visible through the navigation scroll area.
         # NOTE: an inline stylesheet on the scroll area breaks QPushButton background
         # rendering (checked/hover) in PySide6 — transparency is handled in the QSS
         # via `QFrame#sidebar QScrollArea { background: transparent; }`.
         scroll.viewport().setAutoFillBackground(False)
         nav_host = QWidget(); nav_host.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False); nav_host.setAutoFillBackground(False)
-        nav = QVBoxLayout(nav_host); nav.setContentsMargins(0, 4, 0, 6); nav.setSpacing(2)
+        nav = QVBoxLayout(nav_host); self.nav_layout=nav; nav.setContentsMargins(0, 4, 0, 6); nav.setSpacing(2)
         self.group = QButtonGroup(self); self.group.setExclusive(True)
         item_map = {key:(label,obj) for key,label,obj in NAV_ITEMS}
         for key in self.ORDER:
@@ -114,11 +122,22 @@ class Sidebar(QFrame):
         self._badges[key] = max(0, int(count or 0)); self._refresh_button(key)
 
     def set_current(self, key: str) -> None:
-        if key in self._buttons: self._buttons[key].setChecked(True)
+        if key in self._buttons:
+            self._buttons[key].setChecked(True)
+            QTimer.singleShot(0,self._ensure_current_visible)
+
+    def _ensure_current_visible(self) -> None:
+        current = self.group.checkedButton()
+        if current is not None:
+            self.nav_scroll.ensureWidgetVisible(current, 0, 14)
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = bool(collapsed)
         self.setFixedWidth(self.compact_width if self._collapsed else self.expanded_width)
+        if self._collapsed:
+            self.root_layout.setContentsMargins(4, 12, 4, 8)
+        else:
+            self.root_layout.setContentsMargins(10, 14, 10, 10)
         if self._collapsed:
             self.lbl_brand_icon.setFixedSize(40, 40)
             self.lbl_brand_icon.setPixmap(brand_mark_pixmap())
@@ -131,11 +150,20 @@ class Sidebar(QFrame):
         self.btn_toggle_sidebar.setIcon(IconManager.get("expand" if self._collapsed else "collapse"))
         self.btn_toggle_sidebar.setToolTip("Expand sidebar" if self._collapsed else "Collapse sidebar")
         self.btn_toggle_sidebar.setProperty("iconButton", self._collapsed)
-        for btn in self._buttons.values(): btn.setProperty("collapsed", self._collapsed)
+        for btn in self._buttons.values():
+            btn.setProperty("collapsed", self._collapsed)
+            if self._collapsed:
+                btn.setFixedWidth(44)
+                self.nav_layout.setAlignment(btn, Qt.AlignmentFlag.AlignHCenter)
+            else:
+                btn.setMinimumWidth(0)
+                btn.setMaximumWidth(16777215)
+                self.nav_layout.setAlignment(btn, Qt.AlignmentFlag(0))
         for key in self._buttons: self._refresh_button(key)
         # Dynamic properties require repolish when a QSS selector depends on them.
         self.style().unpolish(self); self.style().polish(self)
         for btn in self._buttons.values(): btn.style().unpolish(btn); btn.style().polish(btn)
+        QTimer.singleShot(0,self._ensure_current_visible)
         self.collapsedChanged.emit(self._collapsed)
 
 

@@ -111,7 +111,7 @@ QPushButton[nav="true"]:hover {
 }
 QPushButton[nav="true"]:focus { border: 1px solid #8B9BFF; }
 QPushButton[nav="true"]:checked {
-    background: #18243D;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #20264A, stop:1 #13283C);
     color: #F2F5FF;
     font-weight: 700;
     border-left: 3px solid #8B7CFF;
@@ -252,14 +252,20 @@ QTabWidget#tab_settings QTabBar::tab {
     min-width: 150px;
     text-align: left;
     padding: 12px 16px;
-    border-radius: 12px 12px 0 0;
-    margin: 1px 8px 1px 0;
+    border-radius: 10px;
+    margin: 2px 8px 2px 0;
 }
 QTabWidget#tab_settings QTabBar::tab:selected {
-    background: rgba(109, 124, 255, 26);
+    background: #1B2341;
     border: 0;
-    color: #6D7CFF;
+    border-left: 2px solid #8B7CFF;
+    color: #C4B5FD;
 }
+QWidget#page_settings { background: #0B1020; }
+QLineEdit#le_settings_search:focus { border-color: #8B7CFF; background: #11182B; }
+QTabWidget#tab_settings::pane { background: #11182B; border: 1px solid #313B5B; border-top: 2px solid #8B7CFF; border-radius: 14px; }
+QScrollArea#settings_tab_scroll { background: #11182B; border: 0; }
+QScrollArea#settings_tab_scroll > QWidget > QWidget, QWidget#settings_tab_page { background: #11182B; }
 
 /* Cards and summaries */
 QFrame[summaryCard="true"] {
