@@ -1,6 +1,5 @@
 param(
-    [switch]$LaunchApp,
-    [switch]$CheckLicense
+    [switch]$LaunchApp
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,24 +7,18 @@ $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 
 if (-not (Test-Path $Python)) {
-    Write-Error "Project virtual environment not found: $Python`nCreate/install it first or run: .\scripts\build_release.ps1"
+    Write-Error "Project virtual environment not found: $Python`nCreate it with: py -3.14 -m venv .venv"
 }
 
 Push-Location $ProjectRoot
 try {
-    $env:QT_QPA_PLATFORM = "offscreen"
-
-    Write-Host "== SP Telegram Windows QA =="
+    Write-Host "== Phase 8.3 Windows QA =="
     & $Python -c "import sys; print('Python executable:', sys.executable); print('Python version:', sys.version)"
-    & $Python -c "import PySide6, telethon, qrcode, keyring, cryptography, httpx; print('PySide6:', PySide6.__version__); print('Telethon:', telethon.__version__); print('qrcode: OK'); print('keyring: OK'); print('cryptography:', cryptography.__version__); print('httpx:', httpx.__version__)"
-
+    & $Python -c "import PySide6, telethon, qrcode, keyring; print('PySide6:', PySide6.__version__); print('Telethon:', telethon.__version__); print('qrcode: OK'); print('keyring:', getattr(keyring, '__version__', 'OK'))"
     & $Python -m pip check
     if ($LASTEXITCODE -ne 0) { throw "Dependency check failed." }
-
-    & $Python -m compileall -q app main.py scripts tests
+    & $Python -m compileall -q app license_server main.py scripts tests
     if ($LASTEXITCODE -ne 0) { throw "Python compilation failed." }
-
-    Write-Host "== Desktop pytest suite =="
     & $Python -m pytest -q -p no:cacheprovider tests
     if ($LASTEXITCODE -ne 0) { throw "Desktop pytest suite failed." }
 
@@ -33,31 +26,19 @@ try {
     & $Python -m pytest -q -p no:cacheprovider tests/test_phase83_qt_smoke.py
     if ($LASTEXITCODE -ne 0) { throw "Qt lifecycle suite failed." }
 
-    Write-Host "== Offscreen startup check =="
+    Write-Host "== License-service tests =="
+    & $Python -m pytest -q -p no:cacheprovider license_server/tests
+    if ($LASTEXITCODE -ne 0) { throw "License-service tests failed." }
     & $Python scripts/_qa_boot_offscreen.py
     if ($LASTEXITCODE -ne 0) { throw "Offscreen startup check failed." }
-
-    Write-Host "== Runtime workflow verification =="
     & $Python scripts/_qa_runtime_verify.py
     if ($LASTEXITCODE -ne 0) { throw "Runtime workflow verification failed." }
 
-    Write-Host "== Release preflight =="
-    if ($CheckLicense) {
-        & $Python scripts/release_preflight.py --check-license
-    }
-    else {
-        & $Python scripts/release_preflight.py
-    }
-    if ($LASTEXITCODE -ne 0) { throw "Release preflight failed." }
-
-    Write-Host "QA complete."
     if ($LaunchApp) {
-        Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
         Write-Host "Launching SP Telegram with the project .venv..."
         & $Python main.py
-    }
-    else {
-        Write-Host "Manual GUI review command:"
+    } else {
+        Write-Host "QA complete. To perform manual GUI/log/terminal review run:"
         Write-Host ".\.venv\Scripts\python.exe main.py"
     }
 }

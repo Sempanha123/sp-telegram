@@ -37,11 +37,3 @@ desktop-license.env
 # Installer / migration backups
 *.before-khqr
 *.before-license-reset.db
-
-# Windows release build artifacts
-build/
-dist/
-.build_assets/
-*.exe
-*.msi
-*.sha256

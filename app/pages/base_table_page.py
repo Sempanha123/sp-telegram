@@ -145,6 +145,11 @@ class BaseTablePage(QWidget):
         if checked_changed is not None: checked_changed.connect(self._refresh_table_tools)
         self.model.modelReset.connect(self._update_empty);self.model.modelReset.connect(self._refresh_table_tools);self.model.modelReset.connect(self._schedule_auto_fit_after_refresh);self._update_empty();self._refresh_table_tools()
         self.pagination_bar=PaginationBar(self); self.pagination_bar.hide(); root.addWidget(self.pagination_bar); self.pagination_bar.pageChanged.connect(self.pageChanged); self.pagination_bar.pageSizeChanged.connect(self.pageSizeChanged)
+        self._feature_lock_filler = QWidget(self)
+        self._feature_lock_filler.setObjectName("feature_lock_filler")
+        self._feature_lock_filler.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self._feature_lock_filler.hide()
+        root.addWidget(self._feature_lock_filler, 1)
         self._restore_header()
         # Delay header-menu/table preference registration until derived pages finish
         # applying their default visibility/width rules.
@@ -194,7 +199,7 @@ class BaseTablePage(QWidget):
                 self._license_lock = QLabel(f"{title} — {description}".strip(" —"), self)
                 self._license_lock.setWordWrap(True)
                 self._license_lock.setProperty("warning", True)
-            self.root_layout.insertWidget(1, self._license_lock, 0)
+            self.root_layout.insertWidget(1, self._license_lock, 0, Qt.AlignmentFlag.AlignTop)
 
         if self._license_lock is not None:
             self._license_lock.setVisible(bool(locked))
@@ -205,6 +210,9 @@ class BaseTablePage(QWidget):
                 button = getattr(self._license_lock, "btn_upgrade_feature", None)
                 if button is not None:
                     button.setText(action_text)
+
+        if getattr(self, "_feature_lock_filler", None) is not None:
+            self._feature_lock_filler.setVisible(bool(locked))
 
         self._feature_locked=bool(locked)
         self._feature_preserve_read_only=bool(preserve_read_only)

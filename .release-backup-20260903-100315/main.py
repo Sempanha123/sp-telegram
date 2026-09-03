@@ -7,7 +7,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QSettings, QTimer
+from PySide6.QtCore import QCoreApplication, QSettings
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.application_context import ApplicationContext
@@ -17,7 +17,6 @@ from app.database.database import DatabaseError
 from app.dialogs.dialog_compat import *
 from app.main_window import MainWindow
 from app.theme import apply_theme
-from app.utils.app_paths import default_runtime_root
 from app.utils.helpers import ensure_app_directories
 from app.utils.environment import runtime_environment_summary
 from app.utils.settings_migration import migrate_legacy_qsettings
@@ -38,12 +37,11 @@ def _append_crash_diagnostic(path: Path, heading: str, detail: str = "") -> None
         pass
 
 
-def _install_native_crash_log(runtime_root: Path) -> Path:
+def _install_native_crash_log(project_root: Path) -> Path:
     """Capture fatal Python/native thread traces for intermittent exits."""
     global _FAULT_LOG_HANDLE
-    path = runtime_root / "logs" / "native-crash.log"
+    path = project_root / "logs" / "native-crash.log"
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
         _FAULT_LOG_HANDLE = path.open("a", encoding="utf-8", buffering=1)
         _FAULT_LOG_HANDLE.write(
             f"\n[{datetime.now(timezone.utc).isoformat(timespec='seconds')}] Application session started\n"
@@ -80,20 +78,15 @@ def _install_exception_boundary(context: ApplicationContext, crash_log_path: Pat
 
 
 def main() -> int:
-    # ``source_root`` is where bundled resources originate in development.  It
-    # must not be used as the writable operator-data root in a PyInstaller
-    # one-file build because ``__file__`` then lives under the extraction dir.
-    source_root = Path(__file__).resolve().parent
-    runtime_root = default_runtime_root(source_root)
-    runtime_root.mkdir(parents=True, exist_ok=True)
-    ensure_app_directories(runtime_root)
-    crash_log_path = _install_native_crash_log(runtime_root)
+    project_root = Path(__file__).resolve().parent
+    ensure_app_directories(project_root)
+    crash_log_path = _install_native_crash_log(project_root)
 
     QCoreApplication.setOrganizationName(APP_NAME)
     QCoreApplication.setApplicationName(APP_NAME)
     app = QApplication(sys.argv)
     app.setWindowIcon(brand_icon())
-    # Ending the application is an explicit MainWindow decision. Closing a
+    # Ending the application is an explicit MainWindow decision.  Closing a
     # transient dialog or accidentally losing the last visible child must not
     # silently terminate the event loop.
     app.setQuitOnLastWindowClosed(False)
@@ -106,14 +99,14 @@ def main() -> int:
     apply_theme(app, str(QSettings().value("ui/theme", "light")))
 
     try:
-        context = ApplicationContext(runtime_root)
+        context = ApplicationContext(project_root)
     except DatabaseError as exc:
         QMessageBox.critical(
             None,
             "Database Error",
             f"{APP_NAME} cannot open the database.\n\n"
             f"{exc}\n\n"
-            "Check that the application data folder is writable and that the database is not locked by another application. "
+            "Check that the data folder is writable and that the database is not locked by another application. "
             "No Telegram operations were started.",
         )
         return 1
@@ -122,16 +115,12 @@ def main() -> int:
         env = runtime_environment_summary()
         context.logger.info(
             "SYSTEM",
-            (
-                f"Development runtime Python: {env['python_executable']} | "
-                f"version={env['python_version']} | venv={env['virtual_environment']} | "
-                f"source_root={source_root} | runtime_root={runtime_root}"
-            ),
+            f"Development runtime Python: {env['python_executable']} | version={env['python_version']} | venv={env['virtual_environment']}",
             action="DEVELOPMENT_ENVIRONMENT",
         )
 
     _install_exception_boundary(context, crash_log_path)
-    # MainWindow construction may fail before closeEvent() exists. Keep the
+    # MainWindow construction may fail before closeEvent() exists.  Keep the
     # context strongly owned here and guarantee worker/database cleanup on that
     # path so no running QThread can be destroyed during exception unwinding.
     try:
@@ -144,15 +133,6 @@ def main() -> int:
 
     app.aboutToQuit.connect(context.close)
     window.show()
-    # Safe release smoke mode: the build script uses an isolated runtime root
-    # with an empty database, then closes the window before any delayed online
-    # license refresh or optional Telegram auto-sync can start.
-    if str(os.getenv("SP_RELEASE_SMOKE_TEST", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
-        def _finish_release_smoke() -> None:
-            window.close()
-            QTimer.singleShot(100, app.quit)
-
-        QTimer.singleShot(1800, _finish_release_smoke)
     exit_code = app.exec()
     if not bool(getattr(window, "_shutdown_requested", False)):
         _append_crash_diagnostic(
