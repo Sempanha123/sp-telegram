@@ -28,15 +28,9 @@ class LicenseApi(ABC):
     @abstractmethod
     async def get_license_devices(self, license_reference: str, device_id: str | None = None) -> LicenseApiResult: ...
 
-    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict) -> dict[str, Any]:
-        raise LicenseApiError("Payment checkout is not supported by this license adapter.", code="PAYMENT_NOT_SUPPORTED")
-
-    async def check_payment_invoice(self, invoice_id: str, claim_token: str, device: dict) -> dict[str, Any]:
-        raise LicenseApiError("Payment checkout is not supported by this license adapter.", code="PAYMENT_NOT_SUPPORTED")
-
 
 class HttpLicenseApi(LicenseApi):
-    """Production HTTPS adapter for licensing and KHQR checkout."""
+    """Production HTTPS adapter for the separate SP Telegram license service."""
 
     def __init__(
         self,
@@ -44,7 +38,7 @@ class HttpLicenseApi(LicenseApi):
         verifier: EntitlementVerifier | None = None,
         *,
         connect_timeout: float = 5.0,
-        read_timeout: float = 12.0,
+        read_timeout: float = 10.0,
         allow_local_http: bool = False,
     ):
         self.base_url = (base_url or "").strip().rstrip("/")
@@ -81,6 +75,9 @@ class HttpLicenseApi(LicenseApi):
             "User-Agent": f"SP-Telegram/{APP_VERSION}",
         }
         try:
+            # Local development and test services must never be routed through a
+            # machine-wide HTTP/SOCKS proxy. Remote HTTPS services still honour
+            # the operator's normal proxy configuration.
             async with httpx.AsyncClient(
                 timeout=timeout,
                 headers=headers,
@@ -106,17 +103,22 @@ class HttpLicenseApi(LicenseApi):
             return {
                 "ok": False,
                 "error_code": detail.get("error_code") or detail.get("code") or data.get("error_code") or "UNKNOWN",
-                "message": detail.get("message") or data.get("message") or "Could not complete the request.",
+                "message": detail.get("message") or data.get("message") or "Could not verify license.",
             }
         return data
 
     def _signed_result(self, data: dict[str, Any]) -> LicenseApiResult:
         if not data.get("ok", False):
-            return LicenseApiResult(False, error_code=data.get("error_code") or "UNKNOWN", message=data.get("message") or "Could not verify license.")
+            return LicenseApiResult(
+                False,
+                error_code=data.get("error_code") or "UNKNOWN",
+                message=data.get("message") or "Could not verify license.",
+            )
         envelope = data.get("signed_entitlement")
         claims = self.verifier.verify(envelope) if isinstance(envelope, dict) else None
         if not claims:
             raise LicenseApiError("The signed license entitlement could not be verified.", code="INVALID_LICENSE_RESPONSE")
+        # Signed claims are authoritative. Top-level convenience fields must agree.
         for key in ("plan", "status", "expires_at"):
             if data.get(key) is not None and str(data.get(key)) != str(claims.get(key)):
                 raise LicenseApiError("The license response does not match its signed entitlement.", code="INVALID_LICENSE_RESPONSE")
@@ -142,13 +144,16 @@ class HttpLicenseApi(LicenseApi):
         }
 
     async def activate_license(self, license_key: str, device: dict) -> LicenseApiResult:
-        return self._signed_result(await self._request("/api/v1/license/activate", {"license_key": license_key, **self._device_payload(device)}))
+        data = await self._request("/api/v1/license/activate", {"license_key": license_key, **self._device_payload(device)})
+        return self._signed_result(data)
 
     async def validate_license(self, license_reference: str, device: dict) -> LicenseApiResult:
-        return self._signed_result(await self._request("/api/v1/license/validate", {"license_reference": license_reference, **self._device_payload(device)}))
+        data = await self._request("/api/v1/license/validate", {"license_reference": license_reference, **self._device_payload(device)})
+        return self._signed_result(data)
 
     async def refresh_license(self, license_reference: str, device: dict) -> LicenseApiResult:
-        return self._signed_result(await self._request("/api/v1/license/refresh", {"license_reference": license_reference, **self._device_payload(device)}))
+        data = await self._request("/api/v1/license/refresh", {"license_reference": license_reference, **self._device_payload(device)})
+        return self._signed_result(data)
 
     async def deactivate_device(self, license_reference: str, device_id: str) -> LicenseApiResult:
         payload = {"license_reference": license_reference}
@@ -157,34 +162,31 @@ class HttpLicenseApi(LicenseApi):
         else:
             payload["device_id"] = device_id
         data = await self._request("/api/v1/license/deactivate-device", payload)
-        return LicenseApiResult(bool(data.get("ok")), devices=list(data.get("devices") or []), error_code=data.get("error_code"), message=data.get("message"), trusted=True)
+        return LicenseApiResult(
+            bool(data.get("ok")),
+            devices=list(data.get("devices") or []),
+            error_code=data.get("error_code"),
+            message=data.get("message"),
+            trusted=True,
+        )
 
     async def get_license_devices(self, license_reference: str, device_id: str | None = None) -> LicenseApiResult:
         data = await self._request("/api/v1/license/devices", {"license_reference": license_reference, "device_id": device_id})
-        return LicenseApiResult(bool(data.get("ok")), devices=list(data.get("devices") or []), error_code=data.get("error_code"), message=data.get("message"), trusted=True)
-
-    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict) -> dict[str, Any]:
-        data = await self._request(
-            "/api/v1/payments/invoices",
-            {"plan": str(plan), "license_reference": license_reference, **self._device_payload(device)},
+        return LicenseApiResult(
+            bool(data.get("ok")),
+            devices=list(data.get("devices") or []),
+            error_code=data.get("error_code"),
+            message=data.get("message"),
+            trusted=True,
         )
-        if not data.get("ok", False):
-            raise LicenseApiError(data.get("message") or "Could not create payment invoice.", code=data.get("error_code") or "PAYMENT_ERROR")
-        if not data.get("invoice_id") or not data.get("claim_token") or not data.get("khqr_payload"):
-            raise LicenseApiError("The payment service returned an incomplete invoice.", code="INVALID_LICENSE_RESPONSE")
-        return data
-
-    async def check_payment_invoice(self, invoice_id: str, claim_token: str, device: dict) -> dict[str, Any]:
-        data = await self._request(
-            f"/api/v1/payments/invoices/{urllib.parse.quote(str(invoice_id), safe='')}/check",
-            {"claim_token": claim_token, **self._device_payload(device)},
-        )
-        if not data.get("ok", False):
-            raise LicenseApiError(data.get("message") or "Could not check payment.", code=data.get("error_code") or "PAYMENT_ERROR")
-        return data
 
 
 def create_license_api() -> LicenseApi:
+    """Create the production license adapter.
+
+    There is deliberately no runtime mock fallback. Automated tests inject their
+    test adapter directly into LicenseService.
+    """
     from app.license.client_config import load_license_client_config
     config = load_license_client_config()
     return HttpLicenseApi(

@@ -102,22 +102,12 @@ class LicensePage(QWidget):
         from PySide6.QtWidgets import QApplication
         value=self.controller.copy_device_id();QApplication.clipboard().setText(value);self.toastRequested.emit('Masked device ID copied.','Success')
     def _upgrade_requested(self,feature,required):
-        try:
-            plan = PlanKey(str(required or 'PRO').upper())
-        except ValueError:
-            plan = PlanKey.PRO
-        feature_name = 'Plan change' if str(feature) == 'PLAN_CHANGE' else (feature or 'Selected feature')
-        d = UpgradePlanDialog(
-            str(self.controller.current_state().plan or 'Unlicensed'),
-            feature_name,
-            plan.value,
-            controller=self.controller,
-            parent=self,
-        )
-        d.viewPlansRequested.connect(lambda:self._scroll_plans(None))
-        if d.exec():
-            self.refresh()
-
+        if str(feature)=="PLAN_CHANGE":
+            try:plan=PlanKey(str(required));cfg=PLAN_CONFIG[plan]
+            except (ValueError,KeyError):plan=PlanKey.PRO;cfg=PLAN_CONFIG[plan]
+            QMessageBox.information(self,'Trusted Plan Change Required',f"{cfg['name']} is ${cfg['price_monthly']}/month.\n\nPlan changes are controlled by the SP Telegram license service. This desktop application never upgrades itself locally.\n\nUse your purchase/account channel or an administrator-issued updated license, then refresh the license here.")
+            return
+        d=UpgradePlanDialog(str(self.controller.current_state().plan or 'Unlicensed'),feature or 'Selected feature',required or 'PRO',parent=self);d.viewPlansRequested.connect(lambda:self._scroll_plans(None));d.exec()
     def _choose_plan(self,plan):
         summary=self.controller.load_license_page();current=summary.state.plan_key
         if current==plan:return
