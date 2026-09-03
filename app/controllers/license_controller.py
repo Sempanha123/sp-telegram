@@ -127,11 +127,21 @@ class LicenseController(QObject):
         return self._submit(self._check_payment_invoice(invoice_id, claim_token), 'license_payment_check', self._payment_checked)
 
     async def _create_payment_invoice(self, plan: str):
+        from app.license.license_models import LicenseStatus
+
         state = self.service.get_current_license()
         device = self.service.device_manager.metadata(state.device_name)
+
+        # An INVALID reference may belong to an old/dev license server.
+        # Treat it as a fresh purchase instead of attempting a renewal.
+        license_reference = state.license_reference or None
+
+        if str(state.status) == LicenseStatus.INVALID:
+            license_reference = None
+
         return await self.service.api.create_payment_invoice(
             str(plan).upper(),
-            state.license_reference or None,
+            license_reference,
             device,
         )
 

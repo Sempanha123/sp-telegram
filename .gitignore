@@ -33,3 +33,7 @@ desktop-license.env
 # Local tooling and timestamped source backups
 .claude/settings.local.json
 .dialog_backup_*/
+
+# Installer / migration backups
+*.before-khqr
+*.before-license-reset.db

@@ -1,8 +1,0 @@
-"""Build-time public trust anchors for the production EXE.
-
-Run scripts/pin_production_license.py before the production PyInstaller build.
-These values are PUBLIC, not secrets, but pinning them prevents a normal config
-edit from redirecting the EXE to a fake license signer.
-"""
-PINNED_API_BASE_URL = ""
-PINNED_PUBLIC_KEY_B64 = ""
