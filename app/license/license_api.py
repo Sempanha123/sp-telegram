@@ -28,7 +28,13 @@ class LicenseApi(ABC):
     @abstractmethod
     async def get_license_devices(self, license_reference: str, device_id: str | None = None) -> LicenseApiResult: ...
 
-    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict) -> dict[str, Any]:
+    async def get_payment_plans(self) -> list[dict[str, Any]]:
+        return []
+
+    async def apply_promotion(self, code: str, plan: str, device: dict) -> dict[str, Any]:
+        raise LicenseApiError("Promotion codes are not supported by this license adapter.", code="PROMO_NOT_SUPPORTED")
+
+    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict, promotion_code: str | None = None) -> dict[str, Any]:
         raise LicenseApiError("Payment checkout is not supported by this license adapter.", code="PAYMENT_NOT_SUPPORTED")
 
     async def check_payment_invoice(self, invoice_id: str, claim_token: str, device: dict) -> dict[str, Any]:
@@ -36,17 +42,9 @@ class LicenseApi(ABC):
 
 
 class HttpLicenseApi(LicenseApi):
-    """Production HTTPS adapter for licensing and KHQR checkout."""
+    """Production HTTPS adapter for licensing, promotions and KHQR checkout."""
 
-    def __init__(
-        self,
-        base_url: str,
-        verifier: EntitlementVerifier | None = None,
-        *,
-        connect_timeout: float = 5.0,
-        read_timeout: float = 12.0,
-        allow_local_http: bool = False,
-    ):
+    def __init__(self, base_url: str, verifier: EntitlementVerifier | None = None, *, connect_timeout: float = 5.0, read_timeout: float = 12.0, allow_local_http: bool = False):
         self.base_url = (base_url or "").strip().rstrip("/")
         self.verifier = verifier or EntitlementVerifier()
         self.connect_timeout = max(1.0, float(connect_timeout))
@@ -64,30 +62,17 @@ class HttpLicenseApi(LicenseApi):
             return
         raise LicenseApiError("Production license verification requires HTTPS.", code="INVALID_LICENSE_RESPONSE")
 
-    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any] | None = None, *, method: str = "POST") -> dict[str, Any]:
         self._validate_base_url()
-        parsed_base_url = urllib.parse.urlparse(self.base_url)
-        is_local_service = parsed_base_url.hostname in {"127.0.0.1", "localhost", "::1"}
-        timeout = httpx.Timeout(
-            timeout=self.read_timeout,
-            connect=self.connect_timeout,
-            read=self.read_timeout,
-            write=self.read_timeout,
-            pool=self.connect_timeout,
-        )
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": f"SP-Telegram/{APP_VERSION}",
-        }
+        parsed = urllib.parse.urlparse(self.base_url)
+        is_local = parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+        timeout = httpx.Timeout(timeout=self.read_timeout, connect=self.connect_timeout, read=self.read_timeout, write=self.read_timeout, pool=self.connect_timeout)
+        headers = {"Accept": "application/json", "User-Agent": f"SP-Telegram/{APP_VERSION}"}
+        if method.upper() != "GET":
+            headers["Content-Type"] = "application/json"
         try:
-            async with httpx.AsyncClient(
-                timeout=timeout,
-                headers=headers,
-                follow_redirects=False,
-                trust_env=not is_local_service,
-            ) as client:
-                response = await client.post(self.base_url + path, json=payload)
+            async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=False, trust_env=not is_local) as client:
+                response = await client.get(self.base_url + path) if method.upper() == "GET" else await client.post(self.base_url + path, json=payload or {})
         except httpx.TimeoutException as exc:
             raise LicenseApiError("The license service request timed out.", code="SERVER_UNAVAILABLE") from exc
         except (httpx.ConnectError, httpx.NetworkError, OSError) as exc:
@@ -163,11 +148,23 @@ class HttpLicenseApi(LicenseApi):
         data = await self._request("/api/v1/license/devices", {"license_reference": license_reference, "device_id": device_id})
         return LicenseApiResult(bool(data.get("ok")), devices=list(data.get("devices") or []), error_code=data.get("error_code"), message=data.get("message"), trusted=True)
 
-    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict) -> dict[str, Any]:
-        data = await self._request(
-            "/api/v1/payments/invoices",
-            {"plan": str(plan), "license_reference": license_reference, **self._device_payload(device)},
-        )
+    async def get_payment_plans(self) -> list[dict[str, Any]]:
+        data = await self._request("/api/v1/payments/plans", method="GET")
+        if not data.get("ok", False):
+            raise LicenseApiError(data.get("message") or "Could not load plan pricing.", code=data.get("error_code") or "SERVER_UNAVAILABLE")
+        return list(data.get("plans") or [])
+
+    async def apply_promotion(self, code: str, plan: str, device: dict) -> dict[str, Any]:
+        data = await self._request("/api/v1/promotions/apply", {"code": str(code).strip(), "plan": str(plan).upper(), **self._device_payload(device)})
+        if not data.get("ok", False):
+            raise LicenseApiError(data.get("message") or "Promotion could not be applied.", code=data.get("error_code") or "PROMO_INVALID")
+        return data
+
+    async def create_payment_invoice(self, plan: str, license_reference: str | None, device: dict, promotion_code: str | None = None) -> dict[str, Any]:
+        payload = {"plan": str(plan), "license_reference": license_reference, **self._device_payload(device)}
+        if promotion_code:
+            payload["promotion_code"] = str(promotion_code).strip()
+        data = await self._request("/api/v1/payments/invoices", payload)
         if not data.get("ok", False):
             raise LicenseApiError(data.get("message") or "Could not create payment invoice.", code=data.get("error_code") or "PAYMENT_ERROR")
         if not data.get("invoice_id") or not data.get("claim_token") or not data.get("khqr_payload"):
@@ -187,8 +184,4 @@ class HttpLicenseApi(LicenseApi):
 def create_license_api() -> LicenseApi:
     from app.license.client_config import load_license_client_config
     config = load_license_client_config()
-    return HttpLicenseApi(
-        config.api_base_url,
-        EntitlementVerifier(config.public_key_b64),
-        allow_local_http=config.allow_local_http,
-    )
+    return HttpLicenseApi(config.api_base_url, EntitlementVerifier(config.public_key_b64), allow_local_http=config.allow_local_http)

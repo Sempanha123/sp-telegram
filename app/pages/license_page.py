@@ -146,6 +146,7 @@ class LicensePage(QWidget):
         self.plans_section = plans
         cards = QHBoxLayout()
         self._plan_buttons = {}
+        self._plan_price_labels = {}
 
         for plan in PLAN_ORDER:
             cfg = PLAN_CONFIG[plan]
@@ -189,6 +190,7 @@ class LicensePage(QWidget):
 
             price = QLabel(f"${cfg['price_monthly']}  / month")
             price.setProperty("summaryValue", True)
+            self._plan_price_labels[plan] = price
             lay.addWidget(price)
 
             tagline = QLabel(cfg["tagline"])
@@ -273,6 +275,8 @@ class LicensePage(QWidget):
 
         self.btn_activate_license.clicked.connect(self._activate)
         self.btn_refresh_license.clicked.connect(controller.refresh_license)
+        if hasattr(controller, "refresh_payment_plans"):
+            self.btn_refresh_license.clicked.connect(controller.refresh_payment_plans)
         self.btn_license_details.clicked.connect(self._details)
         self.btn_manage_license_devices.clicked.connect(controller.open_device_manager)
         self.btn_copy_device_id.clicked.connect(self._copy_device)
@@ -285,6 +289,10 @@ class LicensePage(QWidget):
         controller.licenseChanged.connect(lambda *_: self.refresh())
         controller.deviceListChanged.connect(self._show_devices)
         controller.upgradeRequested.connect(self._upgrade_requested)
+        if hasattr(controller, "plansChanged"):
+            controller.plansChanged.connect(lambda *_: self.refresh())
+        if hasattr(controller, "refresh_payment_plans"):
+            controller.refresh_payment_plans()
         self.refresh()
 
     def refresh(self):
@@ -368,6 +376,9 @@ class LicensePage(QWidget):
                 bar.setValue(min(current, int(limit or 1)))
 
         for plan, button in self._plan_buttons.items():
+            price_label = self._plan_price_labels.get(plan)
+            if price_label is not None:
+                price_label.setText(f"${PLAN_CONFIG[plan]['price_monthly']}  / month")
             current = str(state.plan or "") == plan.value
             button.setText("Current Plan" if current else f"Choose {plan.value.title()}")
             button.setEnabled(not current)
