@@ -85,10 +85,8 @@ class LicenseController(QObject):
     def choose_ultimate(self): return self._choose("ULTIMATE")
 
     def _choose(self, plan):
-        current = str(self.service.get_current_license().plan or "")
-        if current == plan:
-            self.toast_requested.emit(f"SP Telegram {plan.title()} is your current plan.", "Info")
-            return plan
+        # Same-plan checkout is intentional: it lets existing customers renew
+        # their current plan or apply promotion/free-trial codes.
         self.upgradeRequested.emit("PLAN_CHANGE", plan)
         return plan
 

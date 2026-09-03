@@ -96,16 +96,8 @@ class UpgradePlanDialog(QDialog):
         self.le_promo.setPlaceholderText("Example: WELCOME20 or TEST10")
         self.btn_apply_promo = QPushButton("Apply Promo")
         self.btn_apply_promo.setObjectName("btn_apply_promotion")
-        self.btn_new_checkout = QPushButton("New Checkout")
-        self.btn_new_checkout.setObjectName("btn_new_promo_checkout")
-        self.btn_new_checkout.setToolTip(
-            "Abandon the current pending invoice locally and start a new checkout "
-            "so you can enter a different promotion code."
-        )
-        self.btn_new_checkout.hide()
         promo_row.addWidget(self.le_promo, 1)
         promo_row.addWidget(self.btn_apply_promo)
-        promo_row.addWidget(self.btn_new_checkout)
         promo_layout.addLayout(promo_row)
         self.lbl_promo = QLabel("Discount codes change the KHQR amount. Free-trial codes activate without payment.")
         self.lbl_promo.setWordWrap(True)
@@ -169,7 +161,6 @@ class UpgradePlanDialog(QDialog):
         self.btn_close.clicked.connect(self.reject)
         self.btn_view_plans.clicked.connect(self._back_to_plans)
         self.btn_apply_promo.clicked.connect(self.apply_promotion)
-        self.btn_new_checkout.clicked.connect(self.start_new_checkout)
         self.btn_create.clicked.connect(self.create_invoice)
         self.btn_check.clicked.connect(self.check_payment)
 
@@ -195,53 +186,6 @@ class UpgradePlanDialog(QDialog):
         if pending:
             self._invoice_ready(pending)
             self.lbl_status.setText("Resumed pending KHQR payment")
-            self.lbl_promo.setText(
-                "This checkout already has a locked invoice amount. "
-                "Click New Checkout to enter or change a promotion code."
-            )
-
-    def start_new_checkout(self):
-        """Abandon the local pending invoice and unlock promo entry.
-
-        The old server invoice is not modified and will expire naturally.
-        This is intentional: changing a promotion after KHQR creation must
-        create a new server-authoritative invoice with a new amount.
-        """
-        if not self.controller:
-            return
-
-        self.controller.clear_pending_payment_invoice()
-        self.poll_timer.stop()
-        self.clock_timer.stop()
-
-        self.invoice_id = ""
-        self.claim_token = ""
-        self.expires_at = None
-        self._checking = False
-        self._creating = False
-        self._promotion_code = ""
-
-        self.lbl_qr.clear()
-        self.lbl_qr.setText(
-            "Enter a promotion code or click Create KHQR to continue."
-        )
-        self.lbl_amount.clear()
-        self.lbl_invoice.clear()
-        self.lbl_timer.clear()
-        self.lbl_status_dot.setText("●")
-        self.lbl_status.setText("Ready for a new checkout")
-        self.lbl_promo.setText(
-            "Enter a promotion/free-trial code before creating KHQR."
-        )
-
-        self.le_promo.clear()
-        self.le_promo.setEnabled(True)
-        self.btn_apply_promo.setEnabled(True)
-        self.btn_create.setEnabled(True)
-        self.btn_check.setEnabled(False)
-        self.btn_check.setText("Check Payment")
-        self.btn_new_checkout.hide()
-        self.le_promo.setFocus()
 
     def apply_promotion(self):
         code = self.le_promo.text().strip()
@@ -268,7 +212,6 @@ class UpgradePlanDialog(QDialog):
             self.lbl_qr.setText("No payment required.")
             self.btn_create.setEnabled(False)
             self.btn_check.setEnabled(False)
-            self.btn_new_checkout.hide()
             QTimer.singleShot(1300, self.accept)
             return
         if action == "DISCOUNT":
@@ -326,7 +269,6 @@ class UpgradePlanDialog(QDialog):
         self.btn_check.setEnabled(True)
         self.btn_apply_promo.setEnabled(False)
         self.le_promo.setEnabled(False)
-        self.btn_new_checkout.show()
         self.poll_timer.start()
         self.clock_timer.start()
         self._update_clock()
@@ -360,7 +302,6 @@ class UpgradePlanDialog(QDialog):
         self.lbl_timer.setText("Complete")
         self.btn_check.setText("Activated")
         self.btn_check.setEnabled(False)
-        self.btn_new_checkout.hide()
         QTimer.singleShot(1200, self.accept)
 
     def _payment_error(self, message):

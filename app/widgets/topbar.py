@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
@@ -46,6 +48,7 @@ class TopBar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent); self.setObjectName("topbar"); self._paused = False; self._compact = False
         self._network_status = "Unknown"; self._telegram_status = "Configuration Required"; self._database_connected = True
+        self._license_plan = "LICENSE"; self._license_status = "UNLICENSED"; self._license_expires_at = None; self._license_days_remaining = None
         layout = QHBoxLayout(self); layout.setContentsMargins(20, 9, 18, 9); layout.setSpacing(12)
         title_host=QWidget(); title_layout=QVBoxLayout(title_host); title_layout.setContentsMargins(0,0,0,0); title_layout.setSpacing(0)
         self._title_host = title_host
@@ -101,6 +104,7 @@ class TopBar(QFrame):
         self.le_global_search.setPlaceholderText("Search…" if compact else self.FULL_SEARCH_PLACEHOLDER)
         self._render_status_text()
 
+        self._render_license_text()
     def _render_status_text(self) -> None:
         network = self._network_status
         telegram = self._telegram_status
@@ -127,12 +131,69 @@ class TopBar(QFrame):
         self._telegram_status = normalized; self._render_status_text(); self._chip_state(self.lbl_telegram_global_status,state,f"Telegram\n{normalized}")
 
 
+    @staticmethod
+    def _days_until(expires_at: str | None):
+        if not expires_at:
+            return None
+        try:
+            deadline = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            seconds = (deadline.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+            if seconds <= 0:
+                return 0
+            return int((seconds + 86399) // 86400)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _pretty_expiry(expires_at: str | None) -> str:
+        if not expires_at:
+            return "—"
+        try:
+            value = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            return value.astimezone().strftime("%d %b %Y")
+        except (TypeError, ValueError):
+            return str(expires_at)
+
+    def _render_license_text(self) -> None:
+        plan = self._license_plan
+        days = self._license_days_remaining
+        if plan not in {"STARTER", "PRO", "ULTIMATE"}:
+            self.btn_license_status.setText("LICENSE")
+            return
+        self.btn_license_status.setText(
+            plan if self._compact or days is None else f"{plan}  •  {days}d"
+        )
+
     def set_license_status(self, plan: str | None, status: str, expires_at: str | None = None):
-        plan_text=str(plan or "LICENSE").upper(); status_text=str(status or "UNLICENSED").replace("_"," ").title(); self.btn_license_status.setText(plan_text if plan_text in {"STARTER","PRO","ULTIMATE"} else "LICENSE")
-        state="ok" if str(status) in {"ACTIVE","TRIAL"} else "warning" if str(status) in {"OFFLINE_GRACE","DEVICE_LIMIT","VALIDATION_REQUIRED"} else "error" if str(status) in {"EXPIRED","SUSPENDED","INVALID"} else "muted"
-        display={"STARTER":"SP Telegram Starter","PRO":"SP Telegram Pro","ULTIMATE":"SP Telegram Ultimate"}.get(plan_text,"SP Telegram License")
-        detail=f"{display}\n{status_text}" + (f"\nActive until {expires_at}" if expires_at and str(status) in {"ACTIVE","TRIAL","OFFLINE_GRACE"} else "")
-        self.btn_license_status.setProperty("state",state); self.btn_license_status.setToolTip(detail); self.btn_license_status.style().unpolish(self.btn_license_status); self.btn_license_status.style().polish(self.btn_license_status)
+        plan_text = str(plan or "LICENSE").upper()
+        raw_status = str(status or "UNLICENSED").upper()
+        status_text = raw_status.replace("_", " ").title()
+        self._license_plan = plan_text
+        self._license_status = raw_status
+        self._license_expires_at = expires_at
+        self._license_days_remaining = self._days_until(expires_at)
+        self._render_license_text()
+        state = (
+            "ok" if raw_status in {"ACTIVE", "TRIAL"}
+            else "warning" if raw_status in {"OFFLINE_GRACE", "DEVICE_LIMIT", "VALIDATION_REQUIRED"}
+            else "error" if raw_status in {"EXPIRED", "SUSPENDED", "INVALID"}
+            else "muted"
+        )
+        display = {"STARTER":"SP Telegram Starter", "PRO":"SP Telegram Pro", "ULTIMATE":"SP Telegram Ultimate"}.get(plan_text, "SP Telegram License")
+        detail_lines = [display, status_text]
+        if expires_at:
+            detail_lines.append(f"Active until {self._pretty_expiry(expires_at)}")
+            if self._license_days_remaining is not None:
+                n = self._license_days_remaining
+                detail_lines.append(f"{n} day{'' if n == 1 else 's'} remaining")
+        self.btn_license_status.setProperty("state", state)
+        self.btn_license_status.setToolTip("\n".join(detail_lines))
+        self.btn_license_status.style().unpolish(self.btn_license_status)
+        self.btn_license_status.style().polish(self.btn_license_status)
 
     def set_notification_count(self, count: int):
         count=max(0,int(count or 0)); self.btn_notifications.setText(str(count) if count else ""); self.btn_notifications.setToolTip(f"Notifications — {count} open" if count else "Notifications")

@@ -17,6 +17,7 @@ from app.dialogs.save_campaign_template_dialog import SaveCampaignAsTemplateDial
 from app.dialogs.notification_center_dialog import NotificationCenterDialog
 from app.dialogs.app_lock_dialog import AppLockDialog
 from app.dialogs.upgrade_plan_dialog import UpgradePlanDialog
+from app.dialogs.license_success_dialog import LicenseSuccessDialog
 from app.widgets.command_palette import CommandPaletteDialog
 from app.pages.account_health_page import AccountHealthPage
 from app.pages.account_pool_page import AccountPoolPage
@@ -257,6 +258,15 @@ class MainWindow(QMainWindow):
         # emits feature/usage signals for specialized listeners, but connecting
         # all three here would repaint the entire shell three times per refresh.
         self.context.license_controller.licenseChanged.connect(lambda *_: self._apply_license_ui())
+        self.context.license_controller.paymentCompleted.connect(
+            lambda data: self._queue_license_success("payment", data, 1450)
+        )
+        self.context.license_controller.promotionApplied.connect(
+            self._on_shell_promotion_applied
+        )
+        self.context.license_controller.licenseActivated.connect(
+            lambda _state: self._queue_license_success("activation", {}, 350)
+        )
         for owner in (self.context.account_controller,self.context.group_controller,self.context.member_controller,self.context.campaign_controller,self.context.scheduler_controller,self.context.template_controller,self.context.operations_controller):
             signal=getattr(owner,"featureLocked",None)
             if signal:signal.connect(self._show_feature_upgrade)
@@ -344,6 +354,35 @@ class MainWindow(QMainWindow):
         except (RuntimeError, AttributeError):
             return
 
+
+    def _queue_license_success(self, source: str, data=None, delay_ms: int = 1200):
+        payload = data if isinstance(data, dict) else {}
+        QTimer.singleShot(
+            max(0, int(delay_ms)),
+            lambda: self._show_license_success(source, payload),
+        )
+
+    def _on_shell_promotion_applied(self, data):
+        if not isinstance(data, dict):
+            return
+        if str(data.get("action") or "").upper() == "ACTIVATED":
+            self._queue_license_success("promotion", data, 1450)
+
+    def _show_license_success(self, source: str, _data=None):
+        if self._shutdown_requested:
+            return
+        try:
+            summary = self.context.license_service.get_license_summary()
+        except Exception:
+            return
+        state = summary.state
+        if not state.plan:
+            return
+        dialog = LicenseSuccessDialog(summary, source=source, parent=self)
+        dialog.viewLicenseRequested.connect(
+            lambda: self.navigate("license", "License")
+        )
+        dialog.exec()
 
     def _apply_license_ui(self):
         state = self.context.license_service.get_current_license()

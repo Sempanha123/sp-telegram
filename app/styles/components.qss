@@ -525,3 +525,26 @@ QProgressBar[tone="warning"]::chunk { background: #FBBF24; }
 QProgressBar[tone="danger"]::chunk { background: #FB7185; }
 QProgressBar[tone="muted"]::chunk { background: #7F8BA6; }
 QTabWidget#tab_settings QTabBar::tab { min-width: 150px; min-height: 38px; }
+
+/* Premium license shell + celebration polish */
+QPushButton#btn_license_status { min-width:84px; min-height:32px; max-height:32px; padding:0 12px; border-radius:9px; font-size:10px; font-weight:800; background:#151E34; border:1px solid #34415F; color:#C4CCDD; }
+QPushButton#btn_license_status:hover { border-color:#7182FF; background:#1B2540; color:#FFFFFF; }
+QPushButton#btn_license_status[state="ok"] { color:#CFFBE8; border-color:#1F9D70; background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #12372F,stop:1 #18344B); }
+QPushButton#btn_license_status[state="warning"] { color:#FFE7A6; border-color:#A97922; background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #3A2C12,stop:1 #29263D); }
+QPushButton#btn_license_status[state="error"] { color:#FFD1D9; border-color:#A13C5B; background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #3B1827,stop:1 #2B1D38); }
+QFrame[licenseHero="true"] { border:1px solid #38496C; border-top:3px solid #7C83FF; border-radius:14px; background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #121A30,stop:0.55 #11182B,stop:1 #102337); }
+QFrame[pricingCard="true"][planTier="starter"] { border-top:2px solid #38BDF8; }
+QFrame[pricingCard="true"][planTier="pro"] { border-top:2px solid #8B7CFF; }
+QFrame[pricingCard="true"][planTier="ultimate"] { border-top:2px solid #22D3EE; }
+QDialog#license_success_dialog { background:#0B1020; }
+QFrame#license_success_hero { background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #19214A,stop:0.48 #102B3D,stop:1 #0E3A31); border:1px solid #3F5B73; border-radius:18px; }
+QLabel[celebrationMark="true"] { color:#5EE6B1; font-size:38px; font-weight:900; }
+QLabel[celebrationTitle="true"] { color:#FFFFFF; font-size:28px; font-weight:850; }
+QLabel[celebrationSubtitle="true"] { color:#B8C6DD; font-size:13px; }
+QLabel[celebrationPlan="true"] { color:#A9B4FF; font-size:20px; font-weight:800; }
+QFrame[licenseMetric="true"] { background:#11182B; border:1px solid #2D3B59; border-radius:12px; }
+QLabel[licenseMetricValue="true"] { color:#F5F7FF; font-size:17px; font-weight:800; }
+QLabel[licenseMetricCaption="true"] { color:#7F8BA6; font-size:9px; font-weight:750; }
+QLabel[celebrationNote="true"] { color:#91A1BC; padding:4px 10px; }
+QPushButton#btn_success_continue { min-width:190px; min-height:40px; }
+QPushButton#btn_success_view_license { min-height:40px; background:#121A2D; border-color:#354563; }

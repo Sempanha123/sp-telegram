@@ -74,6 +74,8 @@ class LicensePage(QWidget):
         root.addWidget(self.scroll_area, 1)
 
         self.current = SectionCard("SP Telegram License")
+
+        self.current.setProperty("licenseHero", True)
         top = QHBoxLayout()
         self.lbl_license_plan = QLabel("No Active License")
         self.lbl_license_plan.setProperty("summaryValue", True)
@@ -176,6 +178,7 @@ class LicensePage(QWidget):
 
             card = QFrame()
             card.setProperty("pricingCard", True)
+            card.setProperty("planTier", plan.value.lower())
             lay = QVBoxLayout(card)
             lay.setContentsMargins(18, 18, 18, 18)
             lay.setSpacing(9)
@@ -380,8 +383,14 @@ class LicensePage(QWidget):
             if price_label is not None:
                 price_label.setText(f"${PLAN_CONFIG[plan]['price_monthly']}  / month")
             current = str(state.plan or "") == plan.value
-            button.setText("Current Plan" if current else f"Choose {plan.value.title()}")
-            button.setEnabled(not current)
+            button.setText(
+                f"Renew / Promo {plan.value.title()}"
+                if current
+                else f"Choose {plan.value.title()}"
+            )
+            # Keep the current plan clickable so an existing customer can
+            # renew the same plan or redeem a promotion/free-trial code.
+            button.setEnabled(True)
 
         self.btn_deactivate_device.setEnabled(bool(state.license_reference and state.device_id))
         return summary
@@ -446,8 +455,6 @@ class LicensePage(QWidget):
     def _choose_plan(self, plan):
         summary = self.controller.load_license_page()
         current = summary.state.plan_key
-        if current == plan:
-            return
 
         target = PLAN_CONFIG[plan]
         over = []
