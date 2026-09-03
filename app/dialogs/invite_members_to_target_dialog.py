@@ -16,6 +16,7 @@ from app.models.base_table_model import BaseTableModel
 from app.utils.member_display_formatter import MemberDisplayFormatter, MemberDisplayPreferences
 from app.utils.table_layout_manager import TableLayoutManager
 from app.utils.table_preferences import TablePreferenceManager
+from app.widgets.add_member_live_activity import AddMemberLiveActivity
 
 
 def _human(value, empty="—") -> str:
@@ -103,7 +104,8 @@ class InviteMembersToTargetDialog(QDialog):
         self.member_ids = sorted({int(x) for x in member_ids if int(x) > 0})
         self._precheck = None; self._last_result = None; self._preflight_generation = 0; self._last_invite_link = None
         self._closed = False; self._controller_connections = []
-        self._mapping_by_account = {}; self._account_row_by_id = {}; self._account_update_guard = False
+        self._running = False
+        self._mapping_by_account = {}; self._account_option_by_id = {}; self._account_row_by_id = {}; self._account_update_guard = False
 
         root = QVBoxLayout(self); root.setContentsMargins(18, 16, 18, 16); root.setSpacing(10)
         title = QLabel("Invite Members to Target"); title.setProperty("dialogTitle", True); root.addWidget(title)
@@ -120,6 +122,10 @@ class InviteMembersToTargetDialog(QDialog):
         self._build_eligibility_tab()
         self._build_progress_tab()
 
+        self.live_activity = AddMemberLiveActivity(self)
+        self.live_activity.hide()
+        root.addWidget(self.live_activity)
+
         actions = QHBoxLayout()
         self.btn_results = QPushButton("View Results"); self.btn_results.setObjectName("btn_view_target_invitation_results"); self.btn_results.setEnabled(False)
         self.btn_cancel = QPushButton("Close")
@@ -130,7 +136,9 @@ class InviteMembersToTargetDialog(QDialog):
         self.cmb_target.currentIndexChanged.connect(self._target_changed); self.table_accounts.itemChanged.connect(self._account_item_changed)
         self.btn_select_valid.clicked.connect(self._select_valid_accounts); self.btn_clear_accounts.clicked.connect(self._clear_accounts)
         self.btn_refresh_permission.clicked.connect(self._request_preflight); self.btn_invite_link.clicked.connect(self._create_invite_link)
-        self.btn_start.clicked.connect(self._start); self.btn_cancel.clicked.connect(self.reject)
+        self.btn_start.clicked.connect(self._start); self.btn_cancel.clicked.connect(self._close_or_background_v5)
+        self.live_activity.backgroundRequested.connect(self._background_v5)
+        self.live_activity.jobsRequested.connect(self._open_jobs_v5)
         self.btn_pause.clicked.connect(self._pause); self.btn_resume.clicked.connect(self._resume); self.btn_stop.clicked.connect(self._stop); self.btn_results.clicked.connect(self._show_results)
         self._connect_controller(self.controller.targetInvitationProgress, self._progress)
         self._connect_controller(self.controller.targetInvitationCompleted, self._completed)
@@ -144,6 +152,71 @@ class InviteMembersToTargetDialog(QDialog):
                 slot = lambda *_: self._schedule_preflight()
                 self._connect_controller(signal, slot)
         self._target_changed()
+        self._register_live_dialog_v5()
+
+    def _live_manager_v5(self):
+        parent=self.parentWidget()
+        while parent is not None:
+            manager=getattr(parent,"_live_job_ux",None)
+            if manager is not None:
+                return manager
+            parent=parent.parentWidget()
+        return None
+
+    def _register_live_dialog_v5(self):
+        manager=self._live_manager_v5()
+        if manager is not None:
+            try:
+                manager.register_dialog(self)
+            except Exception:
+                pass
+
+    def _live_account_plan_v5(self):
+        pre=self._precheck or {}
+        result=[]
+        for account in pre.get("accounts") or []:
+            assigned=int(account.get("assigned_count",0) or 0)
+            if assigned<=0:
+                continue
+            result.append({
+                "account_id":int(account.get("account_id",0) or 0),
+                "name":str(account.get("name") or f"Account {int(account.get('account_id',0) or 0)}"),
+                "assigned":assigned,
+            })
+        return result
+
+    def _background_v5(self):
+        if not self._running:
+            self.showMinimized()
+            return
+        self.hide()
+        manager=self._live_manager_v5()
+        if manager is not None:
+            try:
+                manager.window.toast_requested.emit(
+                    "Add Members is still running. Click the Add x/y chip at the top to reopen it.",
+                    "Info",
+                )
+            except Exception:
+                pass
+
+    def _open_jobs_v5(self):
+        manager=self._live_manager_v5()
+        if manager is not None:
+            manager.open_jobs()
+
+    def _close_or_background_v5(self):
+        if self._running:
+            self._background_v5()
+        else:
+            self.reject()
+
+    def closeEvent(self,event):
+        if self._running:
+            self._background_v5()
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _connect_controller(self, signal, slot):
         try:
@@ -170,7 +243,7 @@ class InviteMembersToTargetDialog(QDialog):
         form.addRow("Target", self.cmb_target); layout.addLayout(form)
 
         heading = QLabel("Authorized Accounts"); heading.setProperty("sectionTitle", True); layout.addWidget(heading)
-        hint = QLabel("Select the accounts you want in this job. Selection order determines the fixed assignment order.")
+        hint = QLabel("Select up to 5 accounts. Accounts marked Auto Join will join this public target during preflight, then live invite permission is checked automatically.")
         hint.setProperty("secondary", True); hint.setWordWrap(True); layout.addWidget(hint)
         self.table_accounts = QTableWidget(0, len(self.ACCOUNT_COLUMNS)); self.table_accounts.setObjectName("tbl_invitation_accounts")
         self.table_accounts.setHorizontalHeaderLabels(self.ACCOUNT_COLUMNS); self.table_accounts.verticalHeader().setVisible(False)
@@ -227,27 +300,70 @@ class InviteMembersToTargetDialog(QDialog):
         item = QTableWidgetItem(str(text)); item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable); return item
 
     def _target_changed(self, *_args):
-        target_id = self.cmb_target.currentData(); mappings = list(self.controller.accounts_for_group(int(target_id)) or []) if target_id else []
-        self._mapping_by_account = {int(mapping.account_id): mapping for mapping in mappings}; self._account_row_by_id = {}
-        self._account_update_guard = True; self.table_accounts.blockSignals(True); self.table_accounts.setRowCount(len(mappings))
-        for row, mapping in enumerate(mappings):
-            account_id = int(mapping.account_id); self._account_row_by_id[account_id] = row
-            access = str(getattr(mapping, "access_state", "UNKNOWN") or "UNKNOWN").upper()
-            accessible = access not in {"ACCESS_DENIED", "NO_ACCESS", "BANNED", "LEFT", "NOT_JOINED", "UNAVAILABLE"}
-            check = QTableWidgetItem(); check.setData(Qt.ItemDataRole.UserRole, account_id); check.setCheckState(Qt.CheckState.Unchecked)
-            check.setFlags((Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable) if accessible else Qt.ItemFlag.ItemIsSelectable)
-            name = getattr(mapping, "account_name", None) or f"Account {account_id}"
-            if getattr(mapping, "account_username", None): name += f"  •  @{mapping.account_username}"
-            self.table_accounts.setItem(row, 0, check); self.table_accounts.setItem(row, 1, self._item(name))
-            self.table_accounts.setItem(row, 2, self._item(_human(getattr(mapping, "health_status", "UNKNOWN"))))
-            self.table_accounts.setItem(row, 3, self._item("Checking…"))
+        target_id = self.cmb_target.currentData()
+        options = list(self.controller.mass_add_account_options(int(target_id)) or []) if target_id else []
+
+        self._account_option_by_id = {int(row["account_id"]): row for row in options}
+        self._mapping_by_account = {
+            int(row["account_id"]): row.get("mapping")
+            for row in options
+            if row.get("mapping") is not None
+        }
+        self._account_row_by_id = {}
+
+        self._account_update_guard = True
+        self.table_accounts.blockSignals(True)
+        self.table_accounts.setRowCount(len(options))
+
+        for row, option in enumerate(options):
+            account_id = int(option["account_id"])
+            self._account_row_by_id[account_id] = row
+            auto_join = bool(option.get("auto_join"))
+            selectable = bool(option.get("selectable"))
+
+            check = QTableWidgetItem()
+            check.setData(Qt.ItemDataRole.UserRole, account_id)
+            check.setCheckState(Qt.CheckState.Unchecked)
+            check.setFlags(
+                (Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                if selectable
+                else Qt.ItemFlag.ItemIsSelectable
+            )
+
+            name = str(option.get("name") or f"Account {account_id}")
+            if option.get("username"):
+                name += f"  •  @{option['username']}"
+            if auto_join:
+                name += "  •  Auto Join"
+
+            access_text = "Auto Join → Live Check" if auto_join else _human(option.get("access"), "Unknown")
+            invite_text = "After Join" if auto_join else ("Yes" if option.get("can_invite_now") else "No")
+
+            self.table_accounts.setItem(row, 0, check)
+            self.table_accounts.setItem(row, 1, self._item(name))
+            self.table_accounts.setItem(row, 2, self._item(_human(option.get("health"), "Unknown")))
+            self.table_accounts.setItem(row, 3, self._item("—"))
             self.table_accounts.setItem(row, 4, self._item("—"))
-            self.table_accounts.setItem(row, 5, self._item(_human(getattr(mapping, "role", None) or access)))
-            self.table_accounts.setItem(row, 6, self._item("Yes" if bool(getattr(mapping, "can_invite", 0)) else "No"))
-            self.table_accounts.setItem(row, 7, self._item(_human(getattr(mapping, "restriction_type", None), "None")))
+            self.table_accounts.setItem(row, 5, self._item(access_text))
+            self.table_accounts.setItem(row, 6, self._item(invite_text))
+            self.table_accounts.setItem(row, 7, self._item(_human(option.get("restriction"), "None")))
             self.table_accounts.setItem(row, 8, self._item("—"))
-        self.table_accounts.blockSignals(False); self._account_update_guard = False
-        self._precheck = None; self._set_account_selection_text(); self._schedule_preflight()
+
+        self.table_accounts.blockSignals(False)
+        self._account_update_guard = False
+        self._precheck = None
+        self.btn_start.setEnabled(False)
+        self.btn_invite_link.setEnabled(False)
+        self._set_account_selection_text()
+
+        if any(bool(row.get("auto_join")) for row in options):
+            self._show_warning(
+                "Accounts marked Auto Join will join this public target during preflight. "
+                "SP Telegram then refreshes live invite permission before Start is enabled."
+            )
+        else:
+            self._show_warning("")
+
 
     def _selected_account_ids(self):
         selected = []
@@ -273,18 +389,37 @@ class InviteMembersToTargetDialog(QDialog):
         self._set_account_selection_text(); self._schedule_preflight()
 
     def _select_valid_accounts(self):
-        chosen = 0; self._account_update_guard = True; self.table_accounts.blockSignals(True)
+        chosen = 0
+        self._account_update_guard = True
+        self.table_accounts.blockSignals(True)
+
         for row in range(self.table_accounts.rowCount()):
-            item = self.table_accounts.item(row, 0); account_id = int(item.data(Qt.ItemDataRole.UserRole)) if item and item.data(Qt.ItemDataRole.UserRole) else None
-            mapping = self._mapping_by_account.get(account_id) if account_id else None
-            access = str(getattr(mapping, "access_state", "UNKNOWN") or "UNKNOWN").upper() if mapping else "UNKNOWN"
-            health = str(getattr(mapping, "health_status", "UNKNOWN") or "UNKNOWN").upper() if mapping else "UNKNOWN"
-            valid = bool(mapping and bool(getattr(mapping, "can_invite", 0)) and access not in {"ACCESS_DENIED", "NO_ACCESS", "BANNED", "LEFT", "NOT_JOINED", "UNAVAILABLE"} and health not in {"COOLDOWN", "RESTRICTED", "SESSION_INVALID", "LOGIN_REQUIRED", "DISABLED"})
+            item = self.table_accounts.item(row, 0)
+            account_id = (
+                int(item.data(Qt.ItemDataRole.UserRole))
+                if item and item.data(Qt.ItemDataRole.UserRole)
+                else None
+            )
+            option = self._account_option_by_id.get(account_id) if account_id else None
+            valid = bool(option and option.get("selectable"))
             checked = valid and chosen < self.MAX_ACCOUNTS
-            if item and item.flags() & Qt.ItemFlag.ItemIsUserCheckable: item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
-            if checked: chosen += 1
-        self.table_accounts.blockSignals(False); self._account_update_guard = False; self._set_account_selection_text(); self._schedule_preflight()
-        if chosen == 0: self._show_warning("No account currently has cached invite permission and healthy target access. Refresh group permissions or choose an account for a live preflight.")
+
+            if item and item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+            if checked:
+                chosen += 1
+
+        self.table_accounts.blockSignals(False)
+        self._account_update_guard = False
+        self._set_account_selection_text()
+        self._schedule_preflight()
+
+        if chosen == 0:
+            self._show_warning(
+                "No healthy authorized account can invite or auto-join this target. "
+                "Auto Join requires a public @username."
+            )
+
 
     def _clear_accounts(self):
         self._account_update_guard = True; self.table_accounts.blockSignals(True)
@@ -398,25 +533,41 @@ class InviteMembersToTargetDialog(QDialog):
         if not bool(pre.get("can_start", pre.get("start_allowed", False))) or int(counts.get("ready", 0) or 0) <= 0:
             self.btn_start.setEnabled(False); self.btn_start.setToolTip("No selected members currently satisfy the invitation eligibility requirements.")
             self._show_warning("No selected members currently satisfy the invitation eligibility requirements. Review the eligibility summary."); self.tabs.setCurrentIndex(1); return
+
         account_ids = self._selected_account_ids(); ready = int(counts.get("ready", 0) or 0)
         group = pre.get("group"); group_title = getattr(group, "title", None) if group is not None else self.cmb_target.currentText()
         plan_lines = []
         for account in pre.get("accounts") or []:
-            if int(account.get("assigned_count", 0) or 0): plan_lines.append(f"{account.get('name')}: {int(account.get('assigned_count', 0))} member(s)")
+            if int(account.get("assigned_count", 0) or 0):
+                plan_lines.append(f"{account.get('name')}: {int(account.get('assigned_count', 0))} member(s)")
+
         if QMessageBox.question(
             self, "Start Invitation Batch",
-            f"Invite {ready} eligible member(s) to {group_title} using {len(account_ids)} explicitly selected account(s)?\n\n"
-            + "\n".join(plan_lines)
-            + "\n\nA final check runs before every account job. Assignments will not change, and no fallback account will be used after a restriction or permission failure.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel,
+            f"Invite {ready} eligible member(s) to {group_title} using {len(account_ids)} selected account(s)?\n\n"
+            + "\n".join(plan_lines),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
         ) != QMessageBox.StandardButton.Yes:
             return
-        self.btn_start.setEnabled(False); self.lbl_progress.setText("Final account checks and fixed assignment setup…")
-        self.progress.setRange(0, max(1, ready)); self.progress.setValue(0); self.tabs.setCurrentIndex(2)
-        token = self.controller.start_target_invitation_batch(int(self.cmb_target.currentData()), account_ids, self.member_ids)
+
+        self.btn_start.setEnabled(False)
+        self.lbl_progress.setText("Starting Add Members…")
+        self.progress.setRange(0, max(1, ready)); self.progress.setValue(0)
+        self.tabs.setCurrentIndex(2)
+
+        self._running=True
+        self.live_activity.start_job(self._live_account_plan_v5())
+
+        token = self.controller.start_target_invitation_batch(
+            int(self.cmb_target.currentData()), account_ids, self.member_ids
+        )
         if token is None:
+            self._running=False
+            self.live_activity.finish(error_message="Add Members could not be queued.")
             self.btn_start.setEnabled(bool(pre.get("can_start", pre.get("start_allowed", False))))
-            self._show_warning("Invitation could not be queued. Check plan access and the Telegram runtime, then refresh permissions."); self.tabs.setCurrentIndex(1); self.lbl_progress.setText("Invitation not started")
+            self._show_warning("Invitation could not be queued. Check plan access and Telegram runtime, then refresh permissions.")
+            self.tabs.setCurrentIndex(1)
+            self.lbl_progress.setText("Invitation not started")
 
     def _can_create_invite_link(self):
         selected = set(self._selected_account_ids())
@@ -466,47 +617,82 @@ class InviteMembersToTargetDialog(QDialog):
 
     def _progress(self, payload):
         if self._closed:return
-        if not payload: return
-        if payload.get("job_id"): self.btn_pause.setEnabled(True); self.btn_stop.setEnabled(True)
-        processed = int(payload.get("processed", 0) or 0); total = int(payload.get("total", 0) or 0)
+        if not payload:return
+        if payload.get("job_id"):
+            self.btn_pause.setEnabled(True); self.btn_stop.setEnabled(True)
+
+        processed = int(payload.get("processed", 0) or 0)
+        total = int(payload.get("total", 0) or 0)
         self.progress.setRange(0, max(1, total)); self.progress.setValue(processed)
-        account = f"Account {int(payload.get('account_index', 0))}/{int(payload.get('account_count', 0))}" if payload.get("account_count") else "Batch"
-        self.lbl_progress.setText(
-            f"{account}  •  Processed {processed:,} / {total:,}  •  Successful {int(payload.get('successful', 0)):,}  •  "
-            f"Skipped {int(payload.get('skipped', 0)):,}  •  Failed {int(payload.get('failed', 0)):,}  •  Current: {payload.get('current') or '—'}"
+
+        account = (
+            f"Account {int(payload.get('account_index', 0))}/{int(payload.get('account_count', 0))}"
+            if payload.get("account_count") else "Batch"
         )
+        self.lbl_progress.setText(
+            f"{account} • Processed {processed:,}/{total:,} • "
+            f"Successful {int(payload.get('successful',0)):,} • "
+            f"Skipped {int(payload.get('skipped',0)):,} • "
+            f"Failed {int(payload.get('failed',0)):,} • "
+            f"Current: {payload.get('current') or '—'}"
+        )
+        self.live_activity.update_progress(payload)
 
     def _completed(self, result):
         if self._closed:return
-        result = result or {}; self._last_result = result
+        result = result or {}
+        self._running=False
+        self._last_result = result
+        self.live_activity.finish(result)
+
         self.btn_pause.setEnabled(False); self.btn_resume.setEnabled(False); self.btn_stop.setEnabled(False)
         status = str(result.get("status", "")).upper()
+
         if status == "BLOCKED":
             if result.get("results"):
                 self.btn_results.setEnabled(True)
-                self._progress({"processed": result.get("processed", 0), "total": result.get("selected", 0), "successful": result.get("successful", 0), "skipped": result.get("skipped", 0), "failed": result.get("failed", 0), "current": "Stopped"})
+                self._progress({
+                    "processed":result.get("processed",0),
+                    "total":result.get("selected",0),
+                    "successful":result.get("successful",0),
+                    "skipped":result.get("skipped",0),
+                    "failed":result.get("failed",0),
+                    "current":"Stopped",
+                })
                 self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)
-                self._show_warning(result.get("message") or "The batch stopped on the current account. Unfinished members were not reassigned.")
-                self.lbl_progress.setText(f"Batch stopped — {int(result.get('processed', 0)):,} processed and {int(result.get('unprocessed', 0)):,} left unprocessed.")
+                self._show_warning(result.get("message") or "The batch stopped safely.")
+                self.lbl_progress.setText(
+                    f"Batch stopped — {int(result.get('processed',0)):,} processed and "
+                    f"{int(result.get('unprocessed',0)):,} left unprocessed."
+                )
                 return
-            self._show_warning(result.get("message") or "Invitation was blocked by final preflight."); self.tabs.setCurrentIndex(1)
-            self.lbl_progress.setText("Invitation not started. Review preflight and refresh permissions."); return
+
+            self._show_warning(result.get("message") or "Invitation was blocked by final preflight.")
+            self.tabs.setCurrentIndex(1)
+            self.lbl_progress.setText("Invitation not started. Review preflight and refresh permissions.")
+            return
+
         self.btn_results.setEnabled(True)
-        self._progress({"processed": result.get("processed", 0), "total": result.get("selected", 0), "successful": result.get("successful", 0), "skipped": result.get("skipped", 0), "failed": result.get("failed", 0), "current": "Complete"})
-        self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)
         self.lbl_progress.setText(
-            f"Invitation {_human(result.get('status', 'COMPLETED'))} — {int(result.get('successful', 0)):,} successful, "
-            f"{int(result.get('skipped', 0)):,} skipped, {int(result.get('failed', 0)):,} failed, {int(result.get('unprocessed', 0)):,} unprocessed."
+            f"Invitation {_human(result.get('status','COMPLETED'))} — "
+            f"{int(result.get('successful',0)):,} successful, "
+            f"{int(result.get('skipped',0)):,} skipped, "
+            f"{int(result.get('failed',0)):,} failed, "
+            f"{int(result.get('unprocessed',0)):,} unprocessed."
         )
-        if status in {"PAUSED", "STOPPED", "CANCELLED"}:
-            self._show_warning(result.get("message") or "The batch stopped on the current account. Unfinished members were not reassigned.")
+        if status in {"PAUSED","STOPPED","CANCELLED"}:
+            self._show_warning(result.get("message") or "The batch stopped on the current account.")
 
     def _invitation_failed(self, message):
         if self._closed:return
+        self._running=False
+        self.live_activity.finish(error_message=message or "Invitation operation failed.")
         self.btn_pause.setEnabled(False); self.btn_resume.setEnabled(False); self.btn_stop.setEnabled(False)
         can_retry = bool(self._precheck and self._precheck.get("can_start", self._precheck.get("start_allowed", False)))
-        self.btn_start.setEnabled(can_retry); self._show_warning(message or "Invitation operation failed before the job could start.")
-        self.tabs.setCurrentIndex(1); self.lbl_progress.setText("Invitation failed to start — no additional member was processed.")
+        self.btn_start.setEnabled(can_retry)
+        self._show_warning(message or "Invitation operation failed before the job could start.")
+        self.tabs.setCurrentIndex(1)
+        self.lbl_progress.setText("Invitation failed to start — no additional member was processed.")
 
     def _show_results(self):
         if self._last_result: InvitationResultsDialog(self._last_result, self).exec()

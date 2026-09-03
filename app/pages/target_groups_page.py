@@ -5,6 +5,7 @@ from app.dialogs.add_group_dialog import AddGroupDialog
 from app.dialogs.group_details_dialog import GroupDetailsDialog
 from app.dialogs.create_target_invite_link_dialog import CreateTargetInviteLinkDialog
 from app.dialogs.mass_add_to_target_dialog import MassAddToTargetDialog
+from app.dialogs.drag_drop_add_dialog import DragDropAddDialog
 from app.dialogs.target_members_dialog import TargetMembersDialog
 from app.dialogs.join_requests_dialog import JoinRequestsDialog
 from app.models.base_table_model import BaseTableModel
@@ -16,7 +17,7 @@ class TargetGroupsPage(BaseTablePage):
     COLUMNS=["Target","Username","Members","Primary Account","Role","Can Post","Can Invite","Can Manage","Known Existing Members","Unknown Status","Last Member Check","Last Sync","Status"]
     def __init__(self,controller,member_controller=None,parent=None,*,avatar_service=None):
         self.controller=controller;self.member_controller=member_controller;self.avatar_service=avatar_service;items,total=controller.get_scoped("target",1,100);controller.pagination.total_items=total
-        super().__init__("page_target_groups","Target Groups",BaseTableModel(self._rows(items),self.COLUMNS),"tbl_target_groups",[("btn_add_target_group","Add Target Group"),("btn_sync_target_groups","Sync Metadata"),("btn_assign_target_account","Assign Account"),("btn_target_group_details","Details"),("btn_remove_target_group_flag","Remove Target Flag"),("btn_sync_target_members","Sync Existing Status"),("btn_view_target_members","View Target Members"),("btn_create_target_invite_link","Create Invite Link"),("btn_copy_target_invite_link","Copy Invite Link"),("btn_view_join_requests","Join Requests"),("btn_create_target_campaign","Create Campaign"),("btn_manage_invite_links","Invite Links"),("btn_mass_add_to_target","Mass Add to Target")],None,[],parent);self.enable_database_mode(controller.pagination)
+        super().__init__("page_target_groups","Target Groups",BaseTableModel(self._rows(items),self.COLUMNS),"tbl_target_groups",[("btn_add_target_group","Add Target Group"),("btn_sync_target_groups","Sync Metadata"),("btn_assign_target_account","Assign Account"),("btn_target_group_details","Details"),("btn_remove_target_group_flag","Remove Target Flag"),("btn_sync_target_members","Sync Existing Status"),("btn_view_target_members","View Target Members"),("btn_create_target_invite_link","Create Invite Link"),("btn_copy_target_invite_link","Copy Invite Link"),("btn_view_join_requests","Join Requests"),("btn_create_target_campaign","Create Campaign"),("btn_manage_invite_links","Invite Links"),("btn_mass_add_to_target","Quick Add")],None,[],parent);self.enable_database_mode(controller.pagination)
         if self.avatar_service is not None:
             self.table.setItemDelegateForColumn(0,AvatarDelegate(self.avatar_service,"group","_id","Target",self.table,peer_id_attr="_telegram_id",account_id_attr="_account_id",subtitle_column="Username"));self.table.verticalHeader().setDefaultSectionSize(44)
         if "Username" in self.model.columns:self.table.setColumnHidden(self.model.columns.index("Username"),True)
@@ -35,8 +36,25 @@ class TargetGroupsPage(BaseTablePage):
             self.action_buttons[name].hide();self._target_more_actions[name]=self.menu_target_more.addAction(label,callback)
         self.menu_target_more.aboutToShow.connect(self._refresh_more_actions)
         self.btn_target_more_actions.setMenu(self.menu_target_more)
+        self.act_advanced_mass_add=self.menu_target_more.addAction("Advanced Add Many",self.advanced_mass_add)
+        self.menu_target_more.aboutToShow.connect(lambda:self.act_advanced_mass_add.setEnabled(self.selected_row() is not None))
         if not member_controller:
             self.action_buttons["btn_sync_target_members"].setEnabled(False);self.action_buttons["btn_view_target_members"].setEnabled(False)
+        self._apply_simple_target_group_ui()
+    def _apply_simple_target_group_ui(self):
+        button=self.action_buttons.get("btn_mass_add_to_target")
+        if button is not None:
+            button.hide()
+            button.setToolTip("Use Flow Studio for Source → Target transfers.")
+
+        more=getattr(self,"btn_target_more_actions",None)
+        if more is not None:
+            more.hide()
+
+        advanced=getattr(self,"act_advanced_mass_add",None)
+        if advanced is not None:
+            advanced.setVisible(False)
+
     def _refresh_more_actions(self):
         selected=self.selected_row() is not None
         for name,action in self._target_more_actions.items():action.setEnabled(selected and self.action_buttons[name].isEnabled())
@@ -134,9 +152,14 @@ class TargetGroupsPage(BaseTablePage):
             group=self.controller.service.repository.get_by_id(gid)
             TargetMembersDialog(self.member_controller,int(gid),group.title if group else "Target Group",self).exec()
     def mass_add_to_target(self):
+        if not self.member_controller:return
+        gid=self._id()
+        DragDropAddDialog(self.controller,self.member_controller,target_group_id=int(gid) if gid else None,parent=self).exec()
+    def advanced_mass_add(self):
         gid=self._id()
         if not gid or not self.member_controller:return
         MassAddToTargetDialog(self.member_controller,target_group_id=int(gid),parent=self).exec()
+
     def refresh_from_controller(self):
         items,total=self.controller.get_scoped("target",1,self.controller.pagination.page_size);self.model.replace_rows(self._rows(items));self.controller.pagination.total_items=total;self.update_pagination(self.controller.pagination)
 
@@ -150,5 +173,5 @@ class TargetGroupsPage(BaseTablePage):
         self.action_buttons["btn_sync_target_members"].setEnabled(sync and bool(self.member_controller))
         self.action_buttons["btn_sync_target_members"].setToolTip("Target member sync requires SP Telegram Pro or SP Telegram Ultimate." if not sync else "")
         self.action_buttons["btn_mass_add_to_target"].setEnabled(direct and bool(self.member_controller))
-        self.action_buttons["btn_mass_add_to_target"].setToolTip("Mass Add to Target requires SP Telegram Ultimate." if not direct else "")
+        self.action_buttons["btn_mass_add_to_target"].setToolTip("Quick Add requires SP Telegram Ultimate." if not direct else "Drag a Source Group onto a Target Group")
         return True

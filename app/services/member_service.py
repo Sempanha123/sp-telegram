@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
-from app.models.entities import Member
+from app.models.entities import GroupAccount, Member
 from app.telegram.models.member_sync_result import MemberSyncOptions, MemberSyncProgress, MemberSyncResult
 from app.utils.formatters import utc_now_iso
 
@@ -402,7 +402,7 @@ class MemberService:
             member=item.get("member") if isinstance(item,dict) else None
             if bool(item.get("allowed")) and getattr(member,"id",None):ready_ids.append(int(member.id))
         ready_ids=list(dict.fromkeys(ready_ids))
-        if not ready_ids and member_ids:add(blockers,"No selected member currently passes the direct-invitation eligibility policy.")
+        if not ready_ids and member_ids:add(blockers,"No member is ready to add yet. A direct Add Member requires Eligibility = Eligible, Consent = Approved, and destination status = verified Not Member.")
         account_rows=[]
         for account_id in account_ids:
             pre=preflights.get(account_id) or {}
@@ -460,15 +460,99 @@ class MemberService:
             for account_id in ids:preflights[account_id]=self.invitation_precheck(target_group_id,account_id,members)
         return self._build_invitation_batch_plan(target_group_id,ids,members,preflights)
 
-    async def invitation_batch_preflight(self,target_group_id:int,account_ids:list[int],member_ids:list[int]):
-        ids=self._explicit_ids(account_ids);members=self._explicit_ids(member_ids);preflights={}
-        if len(ids)<=MAX_INVITATION_BATCH_ACCOUNTS and len(members)<=MAX_INVITATION_BATCH_MEMBERS:
-            # Deliberately sequential: each explicitly selected account receives
-            # its own live authorization, connection and permission validation.
-            for account_id in ids:preflights[account_id]=await self.invitation_preflight(target_group_id,account_id,members)
-        return self._build_invitation_batch_plan(target_group_id,ids,members,preflights)
+    async def _auto_verify_add_member_target_states(self,target_group_id:int,account_ids:list[int],member_ids:list[int]):
+        target_group_id=int(target_group_id)
+        account_ids=self._explicit_ids(account_ids)
+        member_ids=self._explicit_ids(member_ids)
+        summary={"requested":len(member_ids),"checked":0,"not_member":0,"already_member":0,"unknown":0,"errors":0,"account_id":None}
+        if not member_ids or not account_ids or not self.targets:
+            return summary
+        verifier_id=None
+        for account_id in account_ids:
+            account=self.accounts.get_by_id(account_id) if self.accounts else None
+            mapping=self.group_accounts.get_mapping(target_group_id,account_id) if self.group_accounts else None
+            if not account or not mapping:
+                continue
+            if not bool(getattr(account,"is_enabled",0)):
+                continue
+            if str(getattr(account,"authorization_status","UNKNOWN") or "UNKNOWN").upper()!="AUTHORIZED":
+                continue
+            access=str(getattr(mapping,"access_state","UNKNOWN") or "UNKNOWN").upper()
+            if access in {"ACCESS_DENIED","UNAVAILABLE","NO_ACCESS","NOT_JOINED","LEFT"}:
+                continue
+            verifier_id=int(account_id)
+            break
+        if verifier_id is None:
+            return summary
+        summary["account_id"]=verifier_id
+        for member_id in member_ids:
+            member=self.repository.get_by_id(member_id)
+            if not member:
+                continue
+            eligibility=str(getattr(member,"eligibility_status","UNKNOWN") or "UNKNOWN").upper()
+            consent=str(getattr(member,"consent_status","UNKNOWN") or "UNKNOWN").upper()
+            if eligibility!="ELIGIBLE" or consent!="APPROVED":
+                continue
+            if bool(getattr(member,"is_deleted",0)) or bool(getattr(member,"is_bot",0)):
+                continue
+            if self.exclusions and (self.exclusions.is_global_blacklisted(member_id) or self.exclusions.is_do_not_contact(member_id)):
+                continue
+            state=self.targets.get_state(member_id,target_group_id)
+            current=str(getattr(state,"state","UNKNOWN") or "UNKNOWN").upper() if state else "UNKNOWN"
+            if current in {"MEMBER","ALREADY_MEMBER","JOINED"}:
+                summary["already_member"]+=1
+                continue
+            if current=="NOT_MEMBER":
+                summary["not_member"]+=1
+                continue
+            try:
+                result=await self.check_target_membership(member_id,target_group_id,verifier_id)
+                status=str(getattr(result,"status","UNKNOWN") or "UNKNOWN").upper()
+                summary["checked"]+=1
+                if status=="NOT_MEMBER":
+                    summary["not_member"]+=1
+                elif status in {"MEMBER","ALREADY_MEMBER","JOINED","INVITED"}:
+                    summary["already_member"]+=1
+                else:
+                    summary["unknown"]+=1
+            except Exception:
+                summary["errors"]+=1
+                summary["unknown"]+=1
+        return summary
 
-    @staticmethod
+    async def invitation_batch_preflight(self,target_group_id:int,account_ids:list[int],member_ids:list[int]):
+        ids=self._explicit_ids(account_ids)
+        members=self._explicit_ids(member_ids)
+        preflights={}
+        if len(ids)<=MAX_INVITATION_BATCH_ACCOUNTS and len(members)<=MAX_INVITATION_BATCH_MEMBERS:
+            await self._auto_verify_add_member_target_states(int(target_group_id),ids,members)
+            for account_id in ids:
+                preflights[account_id]=await self.invitation_preflight(target_group_id,account_id,members)
+        plan=self._build_invitation_batch_plan(target_group_id,ids,members,preflights)
+        counts=dict(plan.get("counts") or {})
+        ready=int(counts.get("ready",0) or 0)
+        selected=int(counts.get("selected",len(members)) or 0)
+        if selected and not ready:
+            reasons=[
+                x for x in list(plan.get("blocking_reasons") or [])
+                if "direct-invitation eligibility policy" not in str(x).lower()
+                and "direct invitation eligibility policy" not in str(x).lower()
+            ]
+            eligibility=int(counts.get("eligibility_not_approved",0) or 0)
+            consent=int(counts.get("consent_not_approved",0) or 0)
+            unknown=int(counts.get("unknown",0) or 0)
+            existing=int(counts.get("already_member",0) or 0)
+            parts=[]
+            if eligibility: parts.append(f"{eligibility} need Eligibility = Eligible")
+            if consent: parts.append(f"{consent} need Consent = Approved")
+            if unknown: parts.append(f"{unknown} could not be verified against the destination")
+            if existing: parts.append(f"{existing} are already in the destination")
+            message=("No members are ready yet: "+", ".join(parts)+".") if parts else "No members are ready for this Add Member job."
+            if message not in reasons:
+                reasons.insert(0,message)
+            plan["blocking_reasons"]=reasons
+        return plan
+
     def _blocked_invitation_result(pre:dict, code:str="PREFLIGHT_BLOCKED", message:str|None=None):
         reasons=list(pre.get("blocking_reasons") or [])
         return {
@@ -477,6 +561,43 @@ class MemberService:
             "selected":int((pre.get("counts") or {}).get("selected",0)),"processed":0,
             "successful":0,"skipped":0,"failed":0,"results":[],"preflight":pre,
         }
+
+    async def _confirm_invite_applied(self,member,target_group_id:int,account_id:int,entity):
+        last_status="UNKNOWN"
+        last_code=None
+        last_message=None
+        for delay in (0.35,0.8,1.5):
+            await asyncio.sleep(delay)
+            try:
+                result=await self.telegram.target.check_member(
+                    int(member.id),
+                    int(target_group_id),
+                    int(account_id),
+                    entity,
+                    int(member.telegram_user_id),
+                )
+                last_status=str(getattr(result,"status","UNKNOWN") or "UNKNOWN").upper()
+                last_code=getattr(result,"error_code",None)
+                last_message=getattr(result,"error_message",None)
+                if self.targets:
+                    self.targets.upsert_state(
+                        int(member.id),
+                        int(target_group_id),
+                        last_status,
+                        account_id=int(account_id),
+                        error_code=last_code,
+                        error_message=last_message,
+                        checked_at=getattr(result,"checked_at",None),
+                    )
+                if last_status in {"ALREADY_MEMBER","MEMBER","JOINED"}:
+                    return True,last_status,last_code,last_message
+                if last_status in {"PRIVACY_RESTRICTED","ACCESS_DENIED","INVALID","ERROR"}:
+                    break
+            except Exception as exc:
+                last_status="UNKNOWN"
+                last_code=type(exc).__name__
+                last_message=str(exc) or "Membership confirmation failed."
+        return False,last_status,last_code,last_message
 
     async def invite_members_to_target(self,target_group_id:int,account_id:int,member_ids:list[int],*,progress_callback=None):
         if self.feature_gate is not None:
@@ -538,7 +659,42 @@ class MemberService:
                     attempt=await self.target_invitation.invite_member(account_id,entity,m.telegram_user_id,m.username) if self.target_invitation else None
                     status=str(getattr(attempt,"status","FAILED") or "FAILED");code=getattr(attempt,"error_code",None);message=getattr(attempt,"message",None)
                     if status=="SUCCESS":
-                        success+=1;self.targets.upsert_state(m.id,target_group_id,"INVITED",account_id=account_id,error_code=None,error_message=None)
+                        confirmed,verify_status,verify_code,verify_message=await self._confirm_invite_applied(
+                            m,target_group_id,account_id,entity
+                        )
+                        if confirmed:
+                            success+=1
+                            status="SUCCESS"
+                            code=None
+                            message="Added and confirmed in the destination group."
+                        else:
+                            failed+=1
+                            if verify_status=="NOT_MEMBER":
+                                status="INVITE_NOT_CONFIRMED"
+                                code="INVITE_NOT_CONFIRMED"
+                                message=(
+                                    "Telegram accepted the invite request, but the member was still "
+                                    "not present in the destination after verification."
+                                )
+                                self.targets.upsert_state(
+                                    m.id,target_group_id,"NOT_MEMBER",
+                                    account_id=account_id,
+                                    error_code=code,
+                                    error_message=message,
+                                )
+                            else:
+                                status="INVITE_UNVERIFIED"
+                                code=verify_code or "INVITE_UNVERIFIED"
+                                message=verify_message or (
+                                    "The invite request returned without an error, but SP Telegram "
+                                    "could not confirm that the member joined the destination."
+                                )
+                                self.targets.upsert_state(
+                                    m.id,target_group_id,"UNKNOWN",
+                                    account_id=account_id,
+                                    error_code=code,
+                                    error_message=message,
+                                )
                     elif status=="ALREADY_MEMBER":
                         skipped+=1;self.targets.upsert_state(m.id,target_group_id,"ALREADY_MEMBER",account_id=account_id)
                     elif status=="PRIVACY_RESTRICTED":
@@ -646,133 +802,319 @@ class MemberService:
         )
         return {int(r["account_id"]) for r in rows if r["account_id"] is not None}
 
-    def _mass_candidates(self, target_group_id:int, source_group_ids:list[int], target_count:int):
-        """Pull candidates from the selected source groups.
+    def mass_add_account_options(self, target_group_id:int):
+        group = self.groups.get_by_id(int(target_group_id)) if self.groups else None
+        if not group or not self.accounts:
+            return []
 
-        Members are deduplicated across source groups and capped at the target
-        count. Safety exclusions (blacklist, Do Not Contact, deleted, bots) are
-        applied here; per-member eligibility/consent and target-state checks are
-        evaluated by the invitation preflight during the actual run, so members
-        that do not pass are skipped with a reason instead of blocking the pull.
-        """
+        rows = []
+        hard_access = {"BANNED", "ACCESS_DENIED", "NO_ACCESS", "UNAVAILABLE"}
+        blocking_health = {"COOLDOWN", "RESTRICTED", "SESSION_INVALID", "LOGIN_REQUIRED", "DISABLED"}
+        harmless_restrictions = {"", "NONE", "NONE_KNOWN", "UNKNOWN"}
+        public_target = bool(str(getattr(group, "username", "") or "").strip())
+
+        for account in self.accounts.get_operations_enabled_accounts():
+            account_id = int(getattr(account, "id", 0) or 0)
+            if not account_id:
+                continue
+
+            mapping = self.group_accounts.get_mapping(int(target_group_id), account_id) if self.group_accounts else None
+            access = str(getattr(mapping, "access_state", "NOT_JOINED") or "NOT_JOINED").upper() if mapping else "NOT_JOINED"
+            health = str(getattr(account, "health_status", "UNKNOWN") or "UNKNOWN").upper()
+            restriction = str(getattr(account, "restriction_type", "") or "").upper()
+
+            authorized = bool(
+                getattr(account, "is_enabled", 0)
+                and getattr(account, "enabled_for_operations", 0)
+                and str(getattr(account, "authorization_status", "UNKNOWN") or "UNKNOWN").upper() == "AUTHORIZED"
+                and str(getattr(account, "session_path", "") or "").strip()
+            )
+            can_invite_now = bool(
+                mapping
+                and bool(getattr(mapping, "can_invite", 0))
+                and access not in hard_access | {"NOT_JOINED", "LEFT"}
+            )
+
+            auto_join = bool(
+                public_target
+                and access not in hard_access
+                and not can_invite_now
+            )
+
+            selectable = bool(
+                authorized
+                and health not in blocking_health
+                and restriction in harmless_restrictions
+                and (can_invite_now or auto_join)
+            )
+
+            name = str(
+                getattr(account, "first_name", "")
+                or getattr(account, "username", "")
+                or f"Account {account_id}"
+            )
+            username = str(getattr(account, "username", "") or "").strip() or None
+            rows.append({
+                "account_id": account_id,
+                "account": account,
+                "mapping": mapping,
+                "name": name,
+                "username": username,
+                "health": health,
+                "restriction": restriction or "NONE",
+                "access": access,
+                "authorized": authorized,
+                "connected": str(getattr(account, "connection_status", "OFFLINE") or "OFFLINE").upper() == "CONNECTED",
+                "can_invite_now": can_invite_now,
+                "auto_join": auto_join,
+                "selectable": selectable,
+            })
+        return rows
+
+
+    def _mass_candidates(self, target_group_id:int, source_group_ids:list[int], target_count:int):
+        target_group_id=int(target_group_id)
+        target_count=max(1,int(target_count or 0))
         seen: dict[int, Member] = {}
-        for source_group_id in source_group_ids:
-            members = self.repository.get_target_preparation_members(
-                int(target_group_id),
+        for source_group_id in self._explicit_ids(source_group_ids):
+            members=self.repository.get_target_preparation_members(
+                target_group_id,
                 source_group_id=int(source_group_id),
                 exclude_existing=True,
                 exclude_blacklist=True,
                 exclude_do_not_contact=True,
                 exclude_deleted=True,
                 exclude_bots=True,
-                limit=max(1, int(target_count)),
+                limit=max(target_count*3,target_count),
             )
             for member in members:
-                if member.id and int(member.id) not in seen:
-                    seen[int(member.id)] = member
-                if len(seen) >= int(target_count):
+                member_id=int(getattr(member,"id",0) or 0)
+                if not member_id or member_id in seen:
+                    continue
+                eligibility=str(getattr(member,"eligibility_status","UNKNOWN") or "UNKNOWN").upper()
+                consent=str(getattr(member,"consent_status","UNKNOWN") or "UNKNOWN").upper()
+                if eligibility!="ELIGIBLE" or consent!="APPROVED":
+                    continue
+                if bool(getattr(member,"is_deleted",0)) or bool(getattr(member,"is_bot",0)):
+                    continue
+                if self.exclusions:
+                    if self.exclusions.is_global_blacklisted(member_id):
+                        continue
+                    if self.exclusions.is_do_not_contact(member_id):
+                        continue
+                seen[member_id]=member
+                if len(seen)>=target_count:
                     break
-            if len(seen) >= int(target_count):
+            if len(seen)>=target_count:
                 break
         return list(seen.values())
 
-    def mass_target_add_preview(self, target_group_id:int, target_count:int, source_group_ids:list[int], account_ids:list[int]):
-        """Local preview for the Mass Add to Target dialog.
+    def smart_transfer_member_ids(self, source_group_id:int, target_group_id:int, count:int=20):
+        """Return deterministic Source members for the simple drag/drop flow."""
+        limit=max(1,min(int(count or 20),MAX_INVITATION_BATCH_MEMBERS))
+        rows=self._mass_candidates(int(target_group_id),[int(source_group_id)],limit)
+        return [int(row.id) for row in rows if getattr(row,"id",None)][:limit]
 
-        Returns candidate availability (with a shortage recommendation when the
-        source groups cannot fill the target), per-account daily capacity and the
-        round-robin assignment plan. Never raises for ordinary blockers.
-        """
-        target_group_id=int(target_group_id)
-        target_count=max(1,min(int(target_count or 0),MASS_ADD_MAX_TARGET))
-        source_group_ids=self._explicit_ids(source_group_ids)
-        account_ids=self._explicit_ids(account_ids)
-        blockers=[];warnings=[]
-        def add(values,message):
-            if message and message not in values:values.append(message)
-        if not source_group_ids:add(blockers,"Select at least one Source Group to pull members from.")
-        if not account_ids:add(blockers,"Select at least one authorized account.")
-        if len(account_ids)>MASS_ADD_MAX_ACCOUNTS:add(blockers,f"Select no more than {MASS_ADD_MAX_ACCOUNTS} accounts.")
-        candidates=self._mass_candidates(target_group_id,source_group_ids,target_count) if source_group_ids else []
-        candidate_ids=[int(m.id) for m in candidates if m.id]
-        shortage=max(0,target_count-len(candidate_ids))
+    def mass_target_add_preview(self, target_group_id:int, target_count:int, source_group_ids:list[int], account_ids:list[int]):
+        """Build a safe Mass Add plan, including provisional public Auto Join accounts."""
+        target_group_id = int(target_group_id)
+        target_count = max(1, min(int(target_count or 0), MASS_ADD_MAX_TARGET))
+        source_group_ids = self._explicit_ids(source_group_ids)
+        account_ids = self._explicit_ids(account_ids)
+        blockers, warnings = [], []
+        def add(values, message):
+            if message and message not in values:
+                values.append(message)
+        if not source_group_ids:
+            add(blockers, "Select at least one Source Group to pull members from.")
+        if not account_ids:
+            add(blockers, "Select at least one authorized account.")
+        if len(account_ids) > MASS_ADD_MAX_ACCOUNTS:
+            add(blockers, f"Select no more than {MASS_ADD_MAX_ACCOUNTS} accounts.")
+
+        candidates = self._mass_candidates(target_group_id, source_group_ids, target_count) if source_group_ids else []
+        candidate_ids = [int(m.id) for m in candidates if m.id]
+        shortage = max(0, target_count - len(candidate_ids))
         if shortage:
-            add(warnings,f"Only {len(candidate_ids):,} candidate(s) are available from the selected source group(s) — {shortage:,} short of the {target_count:,} target. Add more Source Groups or sync more members first.")
-        account_rows=[]
+            add(warnings, f"Only {len(candidate_ids):,} candidate(s) are available — {shortage:,} short of the {target_count:,} target. Add/sync more Source Groups first.")
+
+        options = {int(row["account_id"]): row for row in self.mass_add_account_options(target_group_id)}
+        group = self.groups.get_by_id(target_group_id) if self.groups else None
+        target_fragments = (
+            "not mapped to this target group",
+            "does not currently have target access",
+            "does not currently have permission to invite",
+        )
+        account_rows = []
         for account_id in account_ids:
-            pre=self.invitation_precheck(target_group_id,account_id,candidate_ids) if candidate_ids else {}
-            account=getattr(pre.get("account"),"first_name",None) or getattr(pre.get("account"),"username",None) or f"Account {account_id}"
-            row_blockers=list(pre.get("blocking_reasons") or [])
-            ready=bool(pre.get("can_start",pre.get("start_allowed",False)))
-            smart_limits=bool(pre.get("smart_limits_enabled",False))
-            daily_remaining=max(0,int(pre.get("invite_remaining_today",0) or 0)) if smart_limits else MASS_ADD_PER_ACCOUNT_CAP
-            batch_capacity=min(MASS_ADD_PER_ACCOUNT_CAP,daily_remaining)
-            for message in row_blockers:add(blockers,f"{account}: {message}")
+            option = options.get(int(account_id))
+            if not option:
+                add(blockers, f"Account {account_id}: disabled, unauthorized, or unavailable for operations.")
+                continue
+            pre = self.invitation_precheck(target_group_id, account_id, candidate_ids) if candidate_ids else {}
+            name = option["name"] + (f"  •  @{option['username']}" if option.get("username") else "")
+            auto_join = bool(option.get("auto_join"))
+            raw_blockers = list(pre.get("blocking_reasons") or [])
+            row_blockers = [
+                msg for msg in raw_blockers
+                if not (auto_join and any(fragment in str(msg).lower() for fragment in target_fragments))
+            ]
+            smart_limits = bool(pre.get("smart_limits_enabled", False))
+            remaining = max(0, int(pre.get("invite_remaining_today", 0) or 0)) if smart_limits else MASS_ADD_PER_ACCOUNT_CAP
+            capacity = min(MASS_ADD_PER_ACCOUNT_CAP, remaining)
+            if auto_join:
+                ready = bool(
+                    option.get("selectable")
+                    and int(pre.get("ready_count", 0) or 0) > 0
+                    and bool(pre.get("restriction_allows_operation", True))
+                    and bool(pre.get("safety_allows_invite", True))
+                    and not row_blockers
+                )
+                target_name = f"@{getattr(group, 'username', '')}" if group and getattr(group, "username", None) else "the target"
+                add(warnings, f"{name}: Auto Join {target_name}; invite permission will be checked live after joining.")
+            else:
+                ready = bool(pre.get("can_start", pre.get("start_allowed", False)))
+            for msg in row_blockers:
+                add(blockers, f"{name}: {msg}")
             account_rows.append({
-                "account_id":account_id,"account":pre.get("account"),"mapping":pre.get("mapping"),
-                "name":str(account),"authorized":bool(pre.get("account_authorized")),
-                "connected":bool(pre.get("account_connected")),"health":str(pre.get("account_health") or "UNKNOWN"),
-                "role":str(pre.get("target_role") or "UNKNOWN"),"can_invite":bool(pre.get("can_invite")),
-                "restriction":pre.get("restriction_status"),"ready":ready,"blocking_reasons":row_blockers,
-                "safety_state":str(pre.get("safety_state") or "NORMAL"),"smart_limits":smart_limits,
-                "invite_used_today":int(pre.get("invite_used_today",0) or 0),
-                "invite_daily_limit":int(pre.get("invite_daily_limit",0) or 0),
-                "invite_remaining_today":daily_remaining,"batch_capacity":batch_capacity,
-                "assigned_member_ids":[],"assigned_count":0,
+                "account_id": account_id,
+                "account": pre.get("account") or option.get("account"),
+                "mapping": pre.get("mapping") or option.get("mapping"),
+                "name": name,
+                "authorized": bool(pre.get("account_authorized", option.get("authorized"))),
+                "connected": bool(pre.get("account_connected", option.get("connected"))),
+                "health": str(pre.get("account_health") or option.get("health") or "UNKNOWN"),
+                "target_access": str(option.get("access") or "UNKNOWN"),
+                "role": str(pre.get("target_role") or ("AUTO_JOIN" if auto_join else "UNKNOWN")),
+                "can_invite": bool(pre.get("can_invite")) if not auto_join else False,
+                "auto_join": auto_join,
+                "restriction": pre.get("restriction_status") or option.get("restriction"),
+                "ready": ready,
+                "blocking_reasons": row_blockers,
+                "safety_state": str(pre.get("safety_state") or "NORMAL"),
+                "smart_limits": smart_limits,
+                "invite_used_today": int(pre.get("invite_used_today", 0) or 0),
+                "invite_daily_limit": int(pre.get("invite_daily_limit", 0) or 0),
+                "invite_remaining_today": remaining,
+                "batch_capacity": capacity,
+                "assigned_member_ids": [],
+                "assigned_count": 0,
             })
-            for message in pre.get("warnings") or []:add(warnings,f"{account}: {message}")
-        capacity=sum(row["batch_capacity"] for row in account_rows if row["ready"])
-        assignments=[];cursor=0;assigned_total=0
+            for msg in pre.get("warnings") or []:
+                add(warnings, f"{name}: {msg}")
+
+        total_capacity = sum(row["batch_capacity"] for row in account_rows if row["ready"])
+        cursor = 0
+        assigned_total = 0
         for member_id in candidate_ids:
-            assigned=False
+            assigned = False
             for offset in range(len(account_rows)):
-                index=(cursor+offset)%len(account_rows) if account_rows else 0
-                row=account_rows[index] if account_rows else None
-                if row and row["ready"] and len(row["assigned_member_ids"])<row["batch_capacity"]:
-                    row["assigned_member_ids"].append(member_id);cursor=(index+1)%len(account_rows);assigned_total+=1;assigned=True;break
-            if not assigned:break
+                index = (cursor + offset) % len(account_rows) if account_rows else 0
+                row = account_rows[index] if account_rows else None
+                if row and row["ready"] and len(row["assigned_member_ids"]) < row["batch_capacity"]:
+                    row["assigned_member_ids"].append(member_id)
+                    cursor = (index + 1) % len(account_rows)
+                    assigned_total += 1
+                    assigned = True
+                    break
+            if not assigned:
+                break
+        assignments = []
         for row in account_rows:
-            assigned=row["assigned_member_ids"];row["assigned_count"]=len(assigned)
-            if assigned:assignments.append({"account_id":row["account_id"],"member_ids":assigned,"count":len(assigned),"daily_remaining":row["invite_remaining_today"]})
-        can_start=bool(assignments and not blockers)
+            row["assigned_count"] = len(row["assigned_member_ids"])
+            if row["assigned_count"]:
+                assignments.append({
+                    "account_id": row["account_id"],
+                    "member_ids": row["assigned_member_ids"],
+                    "count": row["assigned_count"],
+                    "daily_remaining": row["invite_remaining_today"],
+                    "auto_join": bool(row.get("auto_join")),
+                })
+        can_start = bool(assignments and not blockers)
         return {
-            "target_group_id":target_group_id,"target_count":target_count,
-            "source_group_ids":source_group_ids,"account_ids":account_ids,
-            "candidate_count":len(candidate_ids),"candidate_ids":candidate_ids,
-            "shortage":shortage,"capacity":capacity,"assigned_total":assigned_total,
-            "accounts":account_rows,"assignments":assignments,
-            "blocking_reasons":blockers,"warnings":warnings,"can_start":can_start,"start_allowed":can_start,
-            "limits":{"max_accounts":MASS_ADD_MAX_ACCOUNTS,"max_parallel":MASS_ADD_MAX_PARALLEL,"max_target":MASS_ADD_MAX_TARGET,"per_account_cap":MASS_ADD_PER_ACCOUNT_CAP},
+            "target_group_id": target_group_id, "target_count": target_count,
+            "source_group_ids": source_group_ids, "account_ids": account_ids,
+            "candidate_count": len(candidate_ids), "candidate_ids": candidate_ids,
+            "shortage": shortage, "capacity": total_capacity, "assigned_total": assigned_total,
+            "accounts": account_rows, "assignments": assignments,
+            "blocking_reasons": blockers, "warnings": warnings,
+            "can_start": can_start, "start_allowed": can_start,
+            "limits": {"max_accounts": MASS_ADD_MAX_ACCOUNTS, "max_parallel": MASS_ADD_MAX_PARALLEL, "max_target": MASS_ADD_MAX_TARGET, "per_account_cap": MASS_ADD_PER_ACCOUNT_CAP},
         }
 
-    async def _ensure_target_joined(self, account_id:int, group, mapping, client) -> bool:
-        """Best-effort join of the target group when the account is not a member yet."""
-        state=str(getattr(mapping,"access_state","UNKNOWN") or "UNKNOWN").upper()
-        if state not in {"NOT_JOINED","ACCESS_DENIED","UNAVAILABLE","LEFT","BANNED"}:
+    async def _ensure_target_joined(self, account_id:int, group, mapping, client=None) -> bool:
+        username = str(getattr(group, "username", "") or "").strip()
+        if not username:
+            return False
+
+        state = (
+            str(getattr(mapping, "access_state", "NOT_JOINED") or "NOT_JOINED").upper()
+            if mapping else "NOT_JOINED"
+        )
+        if state in {"BANNED", "ACCESS_DENIED", "NO_ACCESS", "UNAVAILABLE"}:
+            return False
+
+        if mapping is not None and bool(getattr(mapping, "can_invite", 0)):
             return True
-        reference=getattr(group,"username",None) or getattr(group,"telegram_group_id",None)
-        if not reference:
-            return False
+
         try:
-            entity=await client.get_entity(reference)
-        except Exception:
-            return False
-        try:
-            if hasattr(client,"join_channel"):
-                await client.join_channel(entity)
-            else:
+            group_service = getattr(self.invitation_preflight_service, "group_service", None)
+            if group_service is not None and hasattr(group_service, "_ensure_connected"):
+                await group_service._ensure_connected(int(account_id))
+
+            if client is None and self.client_manager is not None:
+                client = await self.client_manager.get_client(int(account_id))
+            if client is None:
+                return False
+
+            entity = await client.get_entity(username)
+
+            try:
                 from telethon.tl.functions.channels import JoinChannelRequest
-                from telethon.tl.functions.messages import JoinChatRequest
-                if type(entity).__name__=="Chat":
-                    await client(JoinChatRequest(chat_id=int(entity.id)))
-                else:
-                    await client(JoinChannelRequest(channel=entity))
+                await client(JoinChannelRequest(channel=entity))
+            except Exception as exc:
+                name = type(exc).__name__.lower()
+                message = str(exc or "").lower()
+                already = (
+                    "useralreadyparticipant" in name
+                    or "already participant" in message
+                    or "already a participant" in message
+                    or "already joined" in message
+                )
+                if not already:
+                    return False
+
             if self.group_accounts:
-                try:self.group_accounts.update_access_state(int(group.id),int(account_id),"MEMBER")
-                except Exception:pass
+                current = self.group_accounts.get_mapping(int(group.id), int(account_id))
+                if current is None:
+                    current = GroupAccount(
+                        group_id=int(group.id),
+                        account_id=int(account_id),
+                        role="MEMBER",
+                        access_state="PUBLIC_ACCESSIBLE",
+                        can_view=1,
+                        joined_at=utc_now_iso(),
+                    )
+                    self.group_accounts.upsert_mapping(current)
+                else:
+                    try:
+                        self.group_accounts.update_access_state(
+                            int(group.id), int(account_id), "PUBLIC_ACCESSIBLE"
+                        )
+                    except Exception:
+                        pass
+
+            try:
+                group_service = getattr(self.invitation_preflight_service, "group_service", None)
+                if group_service is not None:
+                    await group_service.refresh_permissions(int(group.id), int(account_id))
+            except Exception:
+                pass
+
             return True
         except Exception:
             return False
+
 
     async def mass_add_members_to_target(self,target_group_id:int,target_count:int,source_group_ids:list[int],account_ids:list[int],parallel_jobs:int=1,*,progress_callback=None):
         """Auto-fill a target group from source groups using parallel accounts.
@@ -791,19 +1133,30 @@ class MemberService:
         if not bool(preview.get("can_start")):
             reason=(preview.get("blocking_reasons") or ["Mass add preflight did not allow this operation."])[0]
             return {"status":"BLOCKED","error_code":"MASS_PREFLIGHT_BLOCKED","message":reason,"selected":0,"processed":0,"successful":0,"skipped":0,"failed":0,"results":[],"preview":preview}
+
+        initial_preview=preview
+        group=self.groups.get_by_id(int(target_group_id)) if self.groups else None
+        joined_accounts=set()
+        for row in preview.get("accounts") or []:
+            if not bool(row.get("auto_join")) or int(row.get("assigned_count",0) or 0)<=0:
+                continue
+            account_id=int(row["account_id"])
+            mapping=self.group_accounts.get_mapping(int(target_group_id),account_id) if self.group_accounts else None
+            if group is None or not await self._ensure_target_joined(account_id,group,mapping,None):
+                message=f"{row.get('name') or f'Account {account_id}'} could not auto-join the public target or refresh invitation permission."
+                return {"status":"BLOCKED","error_code":"TARGET_AUTO_JOIN_FAILED","message":message,"selected":0,"processed":0,"successful":0,"skipped":0,"failed":0,"results":[],"preview":preview}
+            joined_accounts.add(account_id)
+
+        # Recalculate after join using live refreshed target permissions.
+        if joined_accounts:
+            preview=self.mass_target_add_preview(target_group_id,target_count,source_group_ids,account_ids)
+            if not bool(preview.get("can_start")):
+                reason=(preview.get("blocking_reasons") or ["An account joined the target but does not have permission to invite users."])[0]
+                return {"status":"BLOCKED","error_code":"TARGET_PERMISSION_DENIED","message":reason,"selected":0,"processed":0,"successful":0,"skipped":0,"failed":0,"results":[],"preview":preview,"initial_preview":initial_preview,"joined_accounts":sorted(joined_accounts)}
+
         assignments=preview.get("assignments") or []
         total=sum(int(row.get("count",0)) for row in assignments)
         parallel_jobs=max(1,min(int(parallel_jobs or 1),MASS_ADD_MAX_PARALLEL))
-        group=self.groups.get_by_id(int(target_group_id)) if self.groups else None
-        joined_accounts=set()
-        for assignment in assignments:
-            account_id=int(assignment["account_id"])
-            mapping=self.group_accounts.get_mapping(int(target_group_id),account_id) if self.group_accounts else None
-            if mapping and str(getattr(mapping,"access_state","UNKNOWN") or "UNKNOWN").upper() in {"NOT_JOINED","ACCESS_DENIED","UNAVAILABLE","LEFT","BANNED"}:
-                client=await self.client_manager.get_client(account_id) if self.client_manager else None
-                if client is not None and group is not None:
-                    if await self._ensure_target_joined(account_id,group,mapping,client):
-                        joined_accounts.add(account_id)
         aggregate={"processed":0,"successful":0,"skipped":0,"failed":0};results=[];account_results=[];job_ids=[];stop_status=None;stop_message=None
         if progress_callback:
             progress_callback({"status":"RUNNING","processed":0,"total":total,"successful":0,"skipped":0,"failed":0,"current":"Preparing parallel account jobs","target_count":int(target_count),"shortage":int(preview.get("shortage",0))})
@@ -984,22 +1337,48 @@ class MemberService:
         by=self.repository.count_by_eligibility();return {"total":self.repository.count_all(),"eligible":by.get("ELIGIBLE",0),"unknown":by.get("UNKNOWN",0),"do_not_contact":by.get("DO_NOT_CONTACT",0),"blacklisted":self.exclusions.count("exclusion_type='GLOBAL_BLACKLIST' AND target_group_id IS NULL") if self.exclusions else 0,"bots":self.repository.count_bots(),"deleted":self.repository.count_deleted()}
 
     async def _prepare_group_account(self,group_id:int,account_id:int,*,source_required=False,target_required=False):
-        group=self.groups.get_by_id(group_id) if self.groups else None;mapping=self.group_accounts.get_mapping(group_id,account_id) if self.group_accounts else None;account=self.accounts.get_by_id(account_id) if self.accounts else None
-        if not group:raise ValueError("Group not found.")
-        if source_required and not group.is_source:raise ValueError("Select a saved Source Group before syncing members.")
-        if target_required and not group.is_target:raise ValueError("Select a saved Target Group before checking target membership.")
-        if not account or not account.is_enabled:raise ValueError("Selected account is unavailable.")
-        if account.authorization_status!="AUTHORIZED":raise ValueError("Selected account requires Telegram login.")
-        if not mapping:raise ValueError("The selected account is not mapped to this group.")
-        if mapping.access_state in {"ACCESS_DENIED","NOT_JOINED","UNAVAILABLE"}:raise ValueError("Selected account does not currently have access to this group.")
-        client=await self.client_manager.get_client(account_id)
+        group=self.groups.get_by_id(group_id) if self.groups else None
+        mapping=self.group_accounts.get_mapping(group_id,account_id) if self.group_accounts else None
+        account=self.accounts.get_by_id(account_id) if self.accounts else None
+        if not group:
+            raise ValueError("Group not found.")
+        if not account or not bool(getattr(account,"is_enabled",0)):
+            raise ValueError("Selected account is unavailable.")
+        if str(getattr(account,"authorization_status","UNKNOWN") or "UNKNOWN").upper()!="AUTHORIZED":
+            raise ValueError("Selected account requires Telegram login.")
+        if not mapping:
+            raise ValueError("The selected account is not mapped to this group.")
+        access=str(getattr(mapping,"access_state","UNKNOWN") or "UNKNOWN").upper()
+        if access in {"ACCESS_DENIED","UNAVAILABLE","NO_ACCESS"}:
+            raise ValueError("Selected account does not currently have access to this group.")
+        if access in {"NOT_JOINED","LEFT"}:
+            raise ValueError("Selected account has not joined this group yet.")
+        client=await self.client_manager.get_client(account_id) if self.client_manager else None
         if client is None:
-            if not account.session_path:raise ValueError("Selected account has no Telegram session.")
-            client=await self.client_manager.create_client(account_id,account.session_path)
-        if not client.is_connected():await self.client_manager.connect(account_id)
-        if not await client.is_user_authorized():raise ValueError("Selected account requires Telegram login.")
-        reference=group.username or group.telegram_group_id;entity=await client.get_entity(reference)
+            session_path=str(getattr(account,"session_path","") or "")
+            if not session_path:
+                raise ValueError("Selected account has no Telegram session.")
+            client=await self.client_manager.create_client(account_id,session_path)
+        if hasattr(client,"is_connected") and not client.is_connected() and self.client_manager:
+            await self.client_manager.connect(account_id)
+        if hasattr(client,"is_user_authorized") and not await client.is_user_authorized():
+            raise ValueError("Selected account requires Telegram login.")
+        username=str(getattr(group,"username","") or "").strip()
+        peer=getattr(group,"telegram_id",None)
+        entity=None
+        last_error=None
+        for ref in (username,peer):
+            if ref in (None,""):
+                continue
+            try:
+                entity=await client.get_entity(ref)
+                break
+            except Exception as exc:
+                last_error=exc
+        if entity is None:
+            raise RuntimeError(str(last_error or "Could not resolve the selected Telegram group."))
         return group,mapping,entity
+
     def _save_batch(self,batch,group_id,account_id,sync_run_id,options,progress):
         prepared=[];telegram_by_id={};remaining=self._licensed_member_addition_capacity()
         for tm in batch:

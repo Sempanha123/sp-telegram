@@ -164,8 +164,8 @@ class InvitationPreflightService:
         result.account_connected = bool(account and str(getattr(account, "connection_status", "OFFLINE") or "OFFLINE").upper() == "CONNECTED")
         result.restriction_status = str(getattr(account, "restriction_type", "") or "").upper() or None if account else None
 
-        if not group or not (bool(getattr(group, "is_target", 0)) or bool(getattr(group, "is_managed", 0))):
-            self._append_unique(result.blocking_reasons, "Select a saved Target Group first.")
+        if not group:
+            self._append_unique(result.blocking_reasons, "The selected destination group no longer exists.")
         if not mapping:
             result.target_access = "NO_ACCESS"
             result.target_role = "UNKNOWN"

@@ -15,26 +15,26 @@ class Sidebar(QFrame):
     collapsedChanged = Signal(bool)
 
     ORDER = [
-        "dashboard",
-        "accounts", "account_pool", "account_health",
-        "groups",
-        "members", "collector", "blacklist",
+        "dashboard", "flow_studio",
+        "accounts", "groups", "members", "blacklist",
         "campaigns", "scheduler", "templates",
-        "operations", "jobs", "analytics", "alerts", "logs",
+        "jobs", "analytics", "alerts",
+        "operations", "logs",
         "license", "settings",
     ]
     SECTIONS = {
-        "accounts": "MANAGEMENT",
+        "flow_studio": "AUTOMATION",
+        "accounts": "MANAGE",
         "campaigns": "CONTENT",
-        "operations": "OPERATIONS",
-        "license": "SYSTEM",
+        "jobs": "MONITOR",
+        "operations": "SYSTEM TOOLS",
+        "license": "ACCOUNT",
     }
-    # Pages removed from sidebar but still navigable from dashboard cards / cross-page links:
-    # "source_groups", "target_groups" → accessible from Groups page filters
+    # Secondary pages that remain navigable from cross-page links:
     # "sessions" → accessible from Accounts page
     # "restrictions" → accessible from Health Center
     ICONS = {
-        "dashboard": "dashboard", "operations": "operations", "accounts": "accounts", "account_pool": "accounts",
+        "dashboard": "dashboard", "flow_studio": "operations", "operations": "operations", "accounts": "accounts", "account_pool": "accounts",
         "account_health": "health", "restrictions": "restrictions", "sessions": "sessions",
         "groups": "groups", "source_groups": "source_groups", "target_groups": "target_groups",
         "members": "members", "collector": "collector", "blacklist": "blacklist",

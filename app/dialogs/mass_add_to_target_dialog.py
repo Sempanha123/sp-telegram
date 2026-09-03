@@ -41,6 +41,7 @@ class MassAddToTargetDialog(QDialog):
         self._controller_connections = []
         self._job_ids: list[int] = []
         self._account_row_by_id = {}
+        self._account_option_by_id = {}
         self._account_update_guard = False
         self._running = False
         self.summary: dict[str, QLabel] = {}
@@ -110,6 +111,14 @@ class MassAddToTargetDialog(QDialog):
         form.addRow("Total", self.spin_target_count)
         form.addRow("Parallel", self.spin_parallel)
         layout.addLayout(form)
+        target_heading = QLabel("TARGET DESTINATION")
+        target_heading.setProperty("sectionTitle", True)
+        layout.addWidget(target_heading)
+        self.lbl_target_focus = QLabel()
+        self.lbl_target_focus.setObjectName("lbl_mass_add_target_focus")
+        self.lbl_target_focus.setProperty("metric", True)
+        self.lbl_target_focus.setWordWrap(True)
+        layout.addWidget(self.lbl_target_focus)
 
         heading = QLabel("Sources"); heading.setProperty("sectionTitle", True); layout.addWidget(heading)
         hint_sources = QLabel("Check the Source Groups to pull members from. Members are collected from the checked Sources only — nothing is auto-selected.")
@@ -118,10 +127,23 @@ class MassAddToTargetDialog(QDialog):
         self.list_sources.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         for group in self.controller.source_groups():
             item = QListWidgetItem(group.title + (f"  @{group.username}" if getattr(group, "username", None) else ""))
-            item.setData(Qt.ItemDataRole.UserRole, int(group.id)); item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable); item.setCheckState(Qt.CheckState.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, int(group.id)); item.setData(Qt.ItemDataRole.UserRole + 1, item.text()); item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable); item.setCheckState(Qt.CheckState.Unchecked)
             self.list_sources.addItem(item)
         self.list_sources.setMinimumHeight(120)
         layout.addWidget(self.list_sources, 1)
+
+        source_bar = QHBoxLayout()
+        self.btn_select_all_sources = QPushButton("Select All Sources")
+        self.btn_select_all_sources.setObjectName("btn_mass_add_select_all_sources")
+        self.btn_clear_sources = QPushButton("Clear Sources")
+        self.btn_clear_sources.setObjectName("btn_mass_add_clear_sources")
+        self.lbl_source_selection = QLabel("0 source(s) selected")
+        self.lbl_source_selection.setProperty("secondary", True)
+        source_bar.addWidget(self.btn_select_all_sources)
+        source_bar.addWidget(self.btn_clear_sources)
+        source_bar.addStretch()
+        source_bar.addWidget(self.lbl_source_selection)
+        layout.addLayout(source_bar)
 
         heading = QLabel("Accounts (up to 20)"); heading.setProperty("sectionTitle", True); layout.addWidget(heading)
         hint = QLabel("Accounts that are not members of the target yet are auto-joined before adding starts.")
@@ -143,10 +165,24 @@ class MassAddToTargetDialog(QDialog):
         bar.addWidget(self.btn_select_valid); bar.addWidget(self.btn_clear_accounts); bar.addStretch(); bar.addWidget(self.lbl_account_selection); layout.addLayout(bar)
         self.btn_preview = QPushButton("Preview Plan"); self.btn_preview.setObjectName("btn_mass_add_preview"); self.btn_preview.setProperty("primary", True)
         layout.addWidget(self.btn_preview)
+        self.lbl_setup_warning = QLabel("")
+        self.lbl_setup_warning.setObjectName("lbl_mass_add_setup_warning")
+        self.lbl_setup_warning.setProperty("warning", True)
+        self.lbl_setup_warning.setWordWrap(True)
+        self.lbl_setup_warning.hide()
+        layout.addWidget(self.lbl_setup_warning)
         self.btn_select_valid.clicked.connect(self._select_valid_accounts)
         self.btn_clear_accounts.clicked.connect(self._clear_accounts)
         self.table_accounts.itemChanged.connect(self._account_item_changed)
         self.chk_skip_used.toggled.connect(self._skip_used_toggled)
+        self.btn_select_all_sources.clicked.connect(self._select_all_sources)
+        self.btn_clear_sources.clicked.connect(self._clear_sources)
+        self.list_sources.itemChanged.connect(lambda _item: self._update_source_selection_text())
+        if self.list_sources.count() == 1:
+            only = self.list_sources.item(0)
+            if only is not None and only.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                only.setCheckState(Qt.CheckState.Checked)
+        self._update_source_selection_text()
         self.tabs.addTab(tab, "Setup")
 
     def _build_preview_tab(self):
@@ -195,6 +231,48 @@ class MassAddToTargetDialog(QDialog):
     def _item(text="—"):
         item = QTableWidgetItem(str(text)); item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable); return item
 
+    # -------------------------------------------------------------- sources
+    def _show_setup_warning(self, message=None):
+        value = str(message or "").strip()
+        if value:
+            self.lbl_setup_warning.setText(value)
+            self.lbl_setup_warning.show()
+        else:
+            self.lbl_setup_warning.clear()
+            self.lbl_setup_warning.hide()
+
+    def _update_source_selection_text(self):
+        count = len(self._selected_source_ids())
+        total = 0
+        for row in range(self.list_sources.count()):
+            item = self.list_sources.item(row)
+            if item is not None and item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                total += 1
+        self.lbl_source_selection.setText(f"{count} source(s) selected  •  {total} available")
+
+    def _select_all_sources(self):
+        self.list_sources.blockSignals(True)
+        for row in range(self.list_sources.count()):
+            item = self.list_sources.item(row)
+            if item is not None and item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                item.setCheckState(Qt.CheckState.Checked)
+        self.list_sources.blockSignals(False)
+        self._update_source_selection_text()
+        self._preview = None
+        self.btn_start.setEnabled(False)
+        self._show_setup_warning()
+
+    def _clear_sources(self):
+        self.list_sources.blockSignals(True)
+        for row in range(self.list_sources.count()):
+            item = self.list_sources.item(row)
+            if item is not None and item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                item.setCheckState(Qt.CheckState.Unchecked)
+        self.list_sources.blockSignals(False)
+        self._update_source_selection_text()
+        self._preview = None
+        self.btn_start.setEnabled(False)
+
     # ------------------------------------------------------------- accounts
     def _used_account_ids(self):
         target_id = self.cmb_target.currentData()
@@ -208,33 +286,71 @@ class MassAddToTargetDialog(QDialog):
     def _target_changed(self, _index: int = -1):
         del _index
         target_id = self.cmb_target.currentData()
-        mappings = list(self.controller.accounts_for_group(int(target_id)) or []) if target_id else []
-        used = self._used_account_ids() if self.chk_skip_used.isChecked() else set()
-        self._account_row_by_id = {}
-        self._account_update_guard = True; self.table_accounts.blockSignals(True); self.table_accounts.setRowCount(len(mappings))
-        for row, mapping in enumerate(mappings):
-            account_id = int(mapping.account_id); self._account_row_by_id[account_id] = row
-            access = str(getattr(mapping, "access_state", "UNKNOWN") or "UNKNOWN").upper()
-            accessible = access not in {"ACCESS_DENIED", "NO_ACCESS", "BANNED", "LEFT", "UNAVAILABLE"}
-            already_used = account_id in used
-            check = QTableWidgetItem(); check.setData(Qt.ItemDataRole.UserRole, account_id); check.setCheckState(Qt.CheckState.Unchecked)
-            if already_used:
-                check.setFlags(Qt.ItemFlag.ItemIsSelectable)
+        group = next((g for g in self.controller.target_groups() if target_id and int(g.id) == int(target_id)), None)
+        if group is not None:
+            username = f"  @{group.username}" if getattr(group, "username", None) else ""
+            self.lbl_target_focus.setText(
+                f"→ {group.title}{username}  •  {int(getattr(group, 'member_count', 0) or 0):,} known member(s)"
+                + chr(10)
+                + "Members from checked Source Groups go HERE. Accounts marked Auto Join join this public target first, then invite permission is checked live."
+            )
+        else:
+            self.lbl_target_focus.setText("→ Select a Target Group destination first.")
+
+        # Do not let the current target also be selected as its own source.
+        for index in range(self.list_sources.count()):
+            item = self.list_sources.item(index)
+            if item is None:
+                continue
+            source_id = int(item.data(Qt.ItemDataRole.UserRole))
+            original = str(item.data(Qt.ItemDataRole.UserRole + 1) or item.text())
+            same = bool(target_id and source_id == int(target_id))
+            if same:
+                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setText(original + "  •  Current Target")
+                item.setFlags(Qt.ItemFlag.ItemIsSelectable)
             else:
-                check.setFlags((Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable) if accessible else Qt.ItemFlag.ItemIsSelectable)
-            name = getattr(mapping, "account_name", None) or f"Account {account_id}"
-            if getattr(mapping, "account_username", None): name += f"  •  @{mapping.account_username}"
-            if already_used: name += "  •  already used"
-            self.table_accounts.setItem(row, 0, check); self.table_accounts.setItem(row, 1, self._item(name))
-            self.table_accounts.setItem(row, 2, self._item(_human(getattr(mapping, "health_status", "UNKNOWN"))))
+                item.setText(original)
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsUserCheckable)
+
+        options = list(self.controller.mass_add_account_options(int(target_id)) or []) if target_id else []
+        used = self._used_account_ids() if self.chk_skip_used.isChecked() else set()
+        self._account_option_by_id = {int(row["account_id"]): row for row in options}
+        self._account_row_by_id = {}
+        self._account_update_guard = True
+        self.table_accounts.blockSignals(True)
+        self.table_accounts.setRowCount(len(options))
+        for row, option in enumerate(options):
+            account_id = int(option["account_id"])
+            self._account_row_by_id[account_id] = row
+            already_used = account_id in used
+            selectable = bool(option.get("selectable")) and not already_used
+            auto_join = bool(option.get("auto_join"))
+            check = QTableWidgetItem(); check.setData(Qt.ItemDataRole.UserRole, account_id); check.setCheckState(Qt.CheckState.Unchecked)
+            check.setFlags((Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable) if selectable else Qt.ItemFlag.ItemIsSelectable)
+            name = str(option.get("name") or f"Account {account_id}")
+            if option.get("username"):
+                name += f"  •  @{option['username']}"
+            if auto_join:
+                name += "  •  Auto Join"
+            if already_used:
+                name += "  •  already used"
+            self.table_accounts.setItem(row, 0, check)
+            self.table_accounts.setItem(row, 1, self._item(name))
+            self.table_accounts.setItem(row, 2, self._item(_human(option.get("health"), "Unknown")))
             self.table_accounts.setItem(row, 3, self._item("—"))
             self.table_accounts.setItem(row, 4, self._item("—"))
-            self.table_accounts.setItem(row, 5, self._item(_human(getattr(mapping, "role", None) or access)))
-            self.table_accounts.setItem(row, 6, self._item("Yes" if bool(getattr(mapping, "can_invite", 0)) else "No"))
-            self.table_accounts.setItem(row, 7, self._item(_human(getattr(mapping, "restriction_type", None), "None")))
+            self.table_accounts.setItem(row, 5, self._item("Auto Join → Check" if auto_join else _human(option.get("access"))))
+            self.table_accounts.setItem(row, 6, self._item("After Join" if auto_join else ("Yes" if option.get("can_invite_now") else "No")))
+            self.table_accounts.setItem(row, 7, self._item(_human(option.get("restriction"), "None")))
             self.table_accounts.setItem(row, 8, self._item("—"))
-        self.table_accounts.blockSignals(False); self._account_update_guard = False
-        self._preview = None; self._set_account_selection_text()
+        self.table_accounts.blockSignals(False)
+        self._account_update_guard = False
+        self._preview = None
+        self.btn_start.setEnabled(False)
+        self._set_account_selection_text()
+        self._update_source_selection_text()
+        self._show_setup_warning()
 
     def _skip_used_toggled(self, checked):
         self._target_changed()
@@ -261,9 +377,9 @@ class MassAddToTargetDialog(QDialog):
 
     def _set_account_selection_text(self):
         if self.table_accounts.rowCount() == 0:
-            self.lbl_account_selection.setText("No mapped authorized accounts for this target"); return
+            self.lbl_account_selection.setText("No authorized operational accounts available"); return
         count = len(self._selected_account_ids())
-        self.lbl_account_selection.setText(f"{count} selected  •  max 20")
+        self.lbl_account_selection.setText(f"{count} selected  •  max 20 accounts  •  1–4 parallel")
 
     def _account_item_changed(self, item):
         if self._account_update_guard or not item or item.column() != 0:
@@ -275,19 +391,30 @@ class MassAddToTargetDialog(QDialog):
         self._set_account_selection_text(); self._preview = None; self.btn_start.setEnabled(False)
 
     def _select_valid_accounts(self):
-        chosen = 0; self._account_update_guard = True; self.table_accounts.blockSignals(True)
+        chosen = 0
+        self._account_update_guard = True
+        self.table_accounts.blockSignals(True)
         used = self._used_account_ids() if self.chk_skip_used.isChecked() else set()
         for row in range(self.table_accounts.rowCount()):
-            item = self.table_accounts.item(row, 0); account_id = int(item.data(Qt.ItemDataRole.UserRole)) if item and item.data(Qt.ItemDataRole.UserRole) else None
-            mapping = next((m for m in (self.controller.accounts_for_group(self.cmb_target.currentData()) or []) if int(m.account_id) == account_id), None) if account_id else None
-            access = str(getattr(mapping, "access_state", "UNKNOWN") or "UNKNOWN").upper() if mapping else "UNKNOWN"
-            health = str(getattr(mapping, "health_status", "UNKNOWN") or "UNKNOWN").upper() if mapping else "UNKNOWN"
-            valid = bool(mapping and bool(getattr(mapping, "can_invite", 0)) and access not in {"ACCESS_DENIED", "NO_ACCESS", "BANNED", "LEFT", "UNAVAILABLE"} and health not in {"COOLDOWN", "RESTRICTED", "SESSION_INVALID", "LOGIN_REQUIRED", "DISABLED"} and account_id not in used)
+            item = self.table_accounts.item(row, 0)
+            account_id = int(item.data(Qt.ItemDataRole.UserRole)) if item and item.data(Qt.ItemDataRole.UserRole) else None
+            option = self._account_option_by_id.get(account_id) if account_id else None
+            valid = bool(option and option.get("selectable") and account_id not in used)
             checked = valid and chosen < 20
-            if item and item.flags() & Qt.ItemFlag.ItemIsUserCheckable: item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
-            if checked: chosen += 1
-        self.table_accounts.blockSignals(False); self._account_update_guard = False; self._set_account_selection_text(); self._preview = None; self.btn_start.setEnabled(False)
-        if chosen == 0: self._show_warning("No account currently has cached invite permission and healthy target access. Refresh group permissions or choose an account for a live preview.")
+            if item and item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+            if checked:
+                chosen += 1
+        self.table_accounts.blockSignals(False)
+        self._account_update_guard = False
+        self._set_account_selection_text()
+        self._preview = None
+        self.btn_start.setEnabled(False)
+        if chosen == 0:
+            self._show_warning(
+                "No healthy authorized account can invite or Auto Join this target. "
+                "Auto Join requires a public @username; private targets need explicit access first."
+            )
 
     def _clear_accounts(self):
         self._account_update_guard = True; self.table_accounts.blockSignals(True)
@@ -303,19 +430,41 @@ class MassAddToTargetDialog(QDialog):
 
     # --------------------------------------------------------------- preview
     def _run_preview(self):
-        target_id = self.cmb_target.currentData(); source_ids = self._selected_source_ids(); account_ids = self._selected_account_ids()
+        target_id = self.cmb_target.currentData()
+        source_ids = self._selected_source_ids()
+        account_ids = self._selected_account_ids()
+        self._show_setup_warning()
+
         if not target_id:
-            self._show_warning("Select a Target Group first."); return
+            self._show_setup_warning("Select a Target Group first.")
+            return
         if not source_ids:
-            self._show_warning("Select at least one Source Group to pull members from."); return
+            self._show_setup_warning("Select at least one Source Group first. Use ‘Select All Sources’ if needed.")
+            return
         if not account_ids:
-            self._show_warning("Select at least one authorized account."); return
-        self.btn_preview.setEnabled(False); self.btn_preview.setText("Previewing…")
-        self.lbl_preview_status.setText("Checking candidate availability and per-account daily capacity…")
-        result = self.controller.mass_target_add_preview(int(target_id), int(self.spin_target_count.value()), source_ids, account_ids)
-        self.btn_preview.setEnabled(True); self.btn_preview.setText("Preview Plan")
+            self._show_setup_warning("Select at least one account first. Use ‘Select Valid Accounts’ to choose ready or Auto Join accounts.")
+            return
+
+        self.btn_preview.setEnabled(False)
+        self.btn_preview.setText("Previewing…")
+        self.lbl_preview_status.setText("Checking candidate availability and per-account capacity…")
+        self.tabs.setCurrentIndex(1)
+
+        try:
+            result = self.controller.mass_target_add_preview(
+                int(target_id), int(self.spin_target_count.value()), source_ids, account_ids
+            )
+        finally:
+            self.btn_preview.setEnabled(True)
+            self.btn_preview.setText("Preview Plan")
+
         if not result:
-            self._show_warning("Mass add preview could not be completed."); self.lbl_preview_status.setText("Preview unavailable"); return
+            self._preview = None
+            self.btn_start.setEnabled(False)
+            self._show_warning("Preview could not be generated. Check Alerts / Logs for the detailed error.")
+            self.lbl_preview_status.setText("Preview unavailable")
+            return
+
         self._preview = result
         counts = result
         self.summary["target"].setText(f"{int(counts.get('target_count', 0)):,}")
@@ -326,23 +475,33 @@ class MassAddToTargetDialog(QDialog):
         self.summary["accounts"].setText(f"{len(counts.get('accounts') or [])}")
         self.table_plan.setRowCount(0)
         for row in counts.get("accounts") or []:
-            r = self.table_plan.rowCount(); self.table_plan.insertRow(r)
-            self.table_plan.setItem(r, 0, self._item(row.get("name")))
+            r = self.table_plan.rowCount()
+            self.table_plan.insertRow(r)
+            plan_name = str(row.get("name") or "Account") + ("  •  Auto Join" if row.get("auto_join") else "")
+            self.table_plan.setItem(r, 0, self._item(plan_name))
             self.table_plan.setItem(r, 1, self._item(_human(row.get("health"), "Unknown")))
             self.table_plan.setItem(r, 2, self._item(_human(row.get("safety_state"), "Normal")))
-            self.table_plan.setItem(r, 3, self._item(f"{int(row.get('invite_used_today', 0) or 0)}/{int(row.get('invite_daily_limit', 0) or 0)}" if row.get("smart_limits") else "Manual"))
+            today = (f"{int(row.get('invite_used_today', 0) or 0)}/{int(row.get('invite_daily_limit', 0) or 0)}" if row.get("smart_limits") else "Manual")
+            self.table_plan.setItem(r, 3, self._item(today))
             self.table_plan.setItem(r, 4, self._item(str(int(row.get("batch_capacity", 0) or 0))))
             self.table_plan.setItem(r, 5, self._item(str(int(row.get("assigned_count", 0) or 0))))
-        blockers = list(counts.get("blocking_reasons") or []); warnings = list(counts.get("warnings") or [])
-        messages = blockers + warnings
-        self._show_warning("\n".join(f"• {message}" for message in messages))
+
+        blockers = list(counts.get("blocking_reasons") or [])
+        warnings = list(counts.get("warnings") or [])
+        self._show_warning(chr(10).join(f"• {message}" for message in blockers + warnings))
         can_start = bool(counts.get("can_start", counts.get("start_allowed", False)))
         self.btn_start.setEnabled(can_start)
+        candidate_count = int(counts.get("candidate_count", 0) or 0)
+        assigned_total = int(counts.get("assigned_total", 0) or 0)
         if not can_start:
-            self.lbl_preview_status.setText((blockers or ["No members are currently available for the selected sources and accounts."])[0])
+            if blockers:
+                self.lbl_preview_status.setText(blockers[0])
+            elif candidate_count == 0:
+                self.lbl_preview_status.setText("No candidate members were found. Sync/collect members from the selected Source Groups first.")
+            else:
+                self.lbl_preview_status.setText(f"Preview completed but is not ready: {candidate_count:,} candidate(s), {assigned_total:,} assigned.")
         else:
-            self.lbl_preview_status.setText(f"Plan ready: {int(counts.get('assigned_total', 0)):,} will be added across {len(counts.get('assignments') or [])} account job(s).")
-        self.tabs.setCurrentIndex(1)
+            self.lbl_preview_status.setText(f"Plan ready: {assigned_total:,} member(s) across {len(counts.get('assignments') or [])} account job(s).")
 
     # ----------------------------------------------------------------- start
     def _start(self):

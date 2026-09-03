@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton,QWidget,QSizePolicy,
 )
 
-from app.dialogs.invite_members_to_target_dialog import InviteMembersToTargetDialog
+from app.dialogs.smart_add_members_dialog import SmartAddMembersDialog
 from app.dialogs.mass_add_to_target_dialog import MassAddToTargetDialog
 from app.dialogs.member_details_dialog import MemberDetailsDialog
 from app.dialogs.member_pool_cleanup_dialog import ClearEntireMemberPoolDialog
@@ -38,8 +38,8 @@ class MembersPage(BaseTablePage):
         actions=[
             ("btn_import_members","Import"),("btn_export_members","Export"),("btn_member_sync","Member Sync"),
             ("btn_refresh_members","Refresh"),
-            ("btn_prepare_target","Prepare for Target"),("btn_invite_to_target","Invite to Target"),
-            ("btn_mass_add_to_target","Mass Add to Target"),
+            ("btn_prepare_target","Prepare for Target"),("btn_invite_to_target","Add to Group"),
+            ("btn_mass_add_to_target","Advanced Add Many"),
             ("btn_member_tags","Tags"),("btn_member_eligibility","Eligibility"),("btn_member_blacklist","Blacklist"),
             ("btn_member_more","More"),("btn_view_member","View Member"),("btn_add_member_tag","Add Tag"),
             ("btn_add_to_blacklist","Blacklist"),("btn_remove_from_blacklist","Remove Exclusion"),
@@ -113,6 +113,76 @@ class MembersPage(BaseTablePage):
         self._load_member_ui_preferences()
         self._target_changed()
         self._selection_changed()
+        self._apply_simple_member_pool_ui()
+
+    def _apply_simple_member_pool_ui(self):
+        self._simple_member_pool_ui=True
+
+        # Old/duplicate paths are hidden from normal users.
+        for name in (
+            "btn_prepare_target",
+            "btn_mass_add_to_target",
+            "btn_member_more",
+            "btn_member_tags",
+            "btn_member_eligibility",
+            "btn_member_blacklist",
+        ):
+            button=self.action_buttons.get(name)
+            if button is not None:
+                button.hide()
+
+        add_button=self.action_buttons.get("btn_invite_to_target")
+        if add_button is not None:
+            add_button.setText("Add Selected to Group")
+            add_button.setToolTip(
+                "Add the exact members you selected. "
+                "For automatic Source → Target transfer, use Flow Studio."
+            )
+
+        sync_button=self.action_buttons.get("btn_member_sync")
+        if sync_button is not None:
+            sync_button.setText("Sync Members")
+            sync_button.setToolTip("Collect or refresh Source Group members.")
+
+        if hasattr(self,"btn_selection_dnc"):
+            self.btn_selection_dnc.hide()
+
+        # Smart Add now performs target checks itself.
+        if hasattr(self,"target_summary"):
+            self.target_summary.hide()
+
+        # Default Member Pool only needs Search + Source + Target.
+        for obj in (
+            "cmb_member_status",
+            "cmb_member_consent",
+            "cmb_member_tag",
+            "cmb_member_bot_filter",
+            "cmb_member_blacklist_filter",
+        ):
+            combo=self.filter_boxes.get(obj)
+            if combo is not None:
+                host=combo.parentWidget()
+                if host is not None:
+                    host.hide()
+                else:
+                    combo.hide()
+
+        for name in (
+            "chk_exclude_blacklist",
+            "chk_exclude_existing",
+            "chk_only_with_username",
+            "chk_only_eligible",
+        ):
+            widget=getattr(self,name,None)
+            if widget is not None:
+                widget.hide()
+
+        # Remove duplicate right-click surface. Double-click still opens details.
+        try:
+            self.table.customContextMenuRequested.disconnect(self.context_menu)
+        except (TypeError,RuntimeError):
+            pass
+        self.table.setToolTip("Select with checkboxes. Double-click a row to view details.")
 
     def _configure_member_columns(self):
         header=self.table.horizontalHeader()
@@ -162,8 +232,9 @@ class MembersPage(BaseTablePage):
     def _build_selection_bar(self):
         self.selection_bar=QWidget();self.selection_bar.setObjectName("selection_bar");sel=QHBoxLayout(self.selection_bar);sel.setContentsMargins(10,6,10,6);sel.setSpacing(8)
         self.lbl_selection_count=QLabel("0 selected");self.lbl_selection_count.setObjectName("lbl_selection_count");sel.addWidget(self.lbl_selection_count)
-        sel.addWidget(self.action_buttons["btn_invite_to_target"]);sel.addWidget(self.action_buttons["btn_member_tags"]);sel.addWidget(self.action_buttons["btn_member_eligibility"]);sel.addWidget(self.action_buttons["btn_member_blacklist"])
-        self.btn_selection_dnc=QPushButton("Do Not Contact");self.btn_selection_dnc.setObjectName("btn_member_selection_do_not_contact");self.btn_selection_dnc.clicked.connect(self.mark_dnc);sel.addWidget(self.btn_selection_dnc);sel.addStretch()
+        sel.addWidget(self.action_buttons["btn_invite_to_target"]);sel.addStretch()
+        self.btn_selection_dnc=QPushButton("Do Not Contact");self.btn_selection_dnc.setObjectName("btn_member_selection_do_not_contact");self.btn_selection_dnc.clicked.connect(self.mark_dnc);self.btn_selection_dnc.hide()
+        self.action_buttons["btn_member_tags"].hide();self.action_buttons["btn_member_eligibility"].hide();self.action_buttons["btn_member_blacklist"].hide()
         for name in ("btn_view_member","btn_add_member_tag","btn_add_to_blacklist","btn_remove_from_blacklist","btn_mark_eligible","btn_mark_do_not_contact"):
             self.action_buttons[name].hide()
         # Selection actions are contextual, not duplicated in the main page header.
@@ -209,7 +280,7 @@ class MembersPage(BaseTablePage):
         return self.controller.refresh()
 
     def _target_changed(self,*_args,refresh=True):
-        target_id=self._active_target_id();self.model.set_target_selected(bool(target_id));self.target_summary.setVisible(bool(target_id))
+        target_id=self._active_target_id();self.model.set_target_selected(bool(target_id));self.target_summary.setVisible(bool(target_id) and not getattr(self,"_simple_member_pool_ui",False))
         if not target_id:
             self.lbl_active_target.setText("Target: None");self.btn_sync_target_members.setEnabled(False);return
         group=next((g for g in self.controller.target_groups() if int(g.id)==int(target_id)),None);stats=self.controller.target_stats(target_id) or {}
@@ -294,8 +365,25 @@ class MembersPage(BaseTablePage):
 
     def invite_to_target(self):
         ids=self._selected_member_ids()
-        if not ids:QMessageBox.information(self,"Invite to Target","Select one or more Member Pool records first.");return
-        InviteMembersToTargetDialog(self.controller,ids,target_group_id=self._active_target_id(),group_controller=self.group_controller,parent=self).exec()
+        if not ids:
+            QMessageBox.information(self,"Add Selected to Group","Select one or more members first.")
+            return
+        if len(ids)>100:
+            QMessageBox.information(
+                self,
+                "Add Selected to Group",
+                f"You selected {len(ids):,} members.\n\n"
+                "Manual Add Selected supports up to 100 exact members per run. "
+                "Select 100 or fewer here.\n\n"
+                "For larger automatic transfers, use Flow Studio and drag a Source Group onto a Target Group.",
+            )
+            return
+        SmartAddMembersDialog(
+            self.controller,
+            ids,
+            target_group_id=self._active_target_id(),
+            parent=self,
+        ).exec()
 
     def mass_add_to_target(self):
         MassAddToTargetDialog(self.controller,target_group_id=self._active_target_id(),parent=self).exec()
@@ -320,8 +408,8 @@ class MembersPage(BaseTablePage):
     def _build_actions(self):
         self.act_member_details=QAction("Open Details",self);self.act_member_details.setObjectName("act_member_details");self.act_member_details.triggered.connect(self.view)
         self.act_member_prepare_target=QAction("Prepare for Target",self);self.act_member_prepare_target.setObjectName("act_member_prepare_target");self.act_member_prepare_target.triggered.connect(self.prepare_for_target)
-        self.act_member_invite_target=QAction("Invite to Target",self);self.act_member_invite_target.setObjectName("act_member_invite_target");self.act_member_invite_target.triggered.connect(self.invite_to_target)
-        self.act_member_mass_add=QAction("Mass Add to Target",self);self.act_member_mass_add.setObjectName("act_member_mass_add");self.act_member_mass_add.triggered.connect(self.mass_add_to_target)
+        self.act_member_invite_target=QAction("Add to Group",self);self.act_member_invite_target.setObjectName("act_member_invite_target");self.act_member_invite_target.triggered.connect(self.invite_to_target)
+        self.act_member_mass_add=QAction("Advanced Add Many",self);self.act_member_mass_add.setObjectName("act_member_mass_add");self.act_member_mass_add.triggered.connect(self.mass_add_to_target)
         self.act_member_mark_eligible=QAction("Mark Eligible",self);self.act_member_mark_eligible.setObjectName("act_member_mark_eligible");self.act_member_mark_eligible.triggered.connect(lambda:self._bulk_status("eligibility","ELIGIBLE"))
         self.act_member_manual_review=QAction("Manual Review",self);self.act_member_manual_review.setObjectName("act_member_manual_review");self.act_member_manual_review.triggered.connect(lambda:self._bulk_status("eligibility","MANUAL_REVIEW"))
         self.act_member_consent_approved=QAction("Approved",self);self.act_member_consent_approved.setObjectName("act_member_consent_approved");self.act_member_consent_approved.triggered.connect(lambda:self._bulk_status("consent","APPROVED"))

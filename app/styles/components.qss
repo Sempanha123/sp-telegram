@@ -548,3 +548,379 @@ QLabel[licenseMetricCaption="true"] { color:#7F8BA6; font-size:9px; font-weight:
 QLabel[celebrationNote="true"] { color:#91A1BC; padding:4px 10px; }
 QPushButton#btn_success_continue { min-width:190px; min-height:40px; }
 QPushButton#btn_success_view_license { min-height:40px; background:#121A2D; border-color:#354563; }
+
+/* Smart Add Members simple flow */
+QDialog#dlg_smart_add_members { background: #0B1120; }
+QFrame#smart_add_hero {
+    border: 1px solid #304565;
+    border-left: 3px solid #22D3EE;
+    border-radius: 14px;
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #121B32,stop:0.55 #102239,stop:1 #0D2C36);
+}
+QLabel#smart_add_title { color: #F8FAFF; font-size: 23px; font-weight: 800; }
+QLabel#smart_add_subtitle, QLabel#smart_add_muted { color: #93A4BF; }
+QLabel#smart_add_caption { color: #7DD3FC; font-size: 10px; font-weight: 800; }
+QLabel#smart_add_section_title { color: #F4F7FF; font-size: 15px; font-weight: 750; }
+QLabel#smart_add_status {
+    padding: 10px 12px; border-radius: 9px;
+    background: #10192B; border: 1px solid #273650; color: #C6D2E6;
+}
+QFrame#smart_add_target_card {
+    border: 1px solid #253650; border-radius: 12px; background: #0F1728;
+}
+QFrame[smartStage="true"] {
+    border: 1px solid #273650; border-radius: 9px; background: #0E1729;
+}
+QLabel[stageBadge="true"] {
+    min-width: 24px; max-width: 24px; min-height: 24px; max-height: 24px;
+    border-radius: 12px; background: #182A43; color: #67E8F9; font-weight: 800;
+}
+QLabel[stageText="true"] { color: #B9C6D9; font-weight: 700; }
+QFrame[smartMetric="true"] {
+    border: 1px solid #293A55; border-radius: 11px; background: #10192B;
+}
+QLabel[metricCaption="true"] { color: #7F90AA; font-size: 10px; font-weight: 700; }
+QLabel[metricValue="true"] { color: #F5F8FF; font-size: 20px; font-weight: 850; }
+QPushButton#btn_smart_add_primary { min-width: 180px; min-height: 40px; }
+QToolButton#btn_smart_add_advanced { color: #8FA1BC; border: 0; padding: 4px 2px; }
+QPlainTextEdit#smart_add_advanced { background: #0D1525; border: 1px solid #253650; border-radius: 9px; color: #9FB0C8; }
+
+/* Quick Add drag and drop flow */
+QDialog#dlg_drag_drop_add { background: #0A1020; }
+QFrame#quick_transfer_hero {
+    border: 1px solid #2B4264; border-left: 3px solid #22D3EE; border-radius: 14px;
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #111A31,stop:0.55 #10243B,stop:1 #0D3035);
+}
+QLabel#quick_transfer_title { color: #F7FAFF; font-size: 24px; font-weight: 850; }
+QLabel#quick_transfer_subtitle { color: #9AACBF; }
+QLabel#quick_transfer_instruction { color: #B6C5DB; font-size: 13px; font-weight: 750; padding: 6px; }
+QFrame#quick_transfer_panel { background: #0E1728; border: 1px solid #263751; border-radius: 14px; }
+QLabel#quick_transfer_panel_title { color: #EAF1FF; font-size: 13px; font-weight: 850; }
+QFrame#drag_source_group_card, QFrame#drop_target_group_card { background: #111B2E; border: 1px solid #2A3A55; border-radius: 12px; }
+QFrame#drag_source_group_card:hover { border-color: #6D7CFF; background: #142139; }
+QFrame#drop_target_group_card:hover { border-color: #22B8D3; background: #102438; }
+QFrame#drop_target_group_card[dropActive="true"] { border: 2px solid #22D3EE; background: #102B3C; }
+QFrame#drop_target_group_card[recommendedTarget="true"] { border-color: #6EE7B7; }
+QLabel[flowBadge="source"] { color: #C8C4FF; background: #25244A; border-radius: 7px; padding: 3px 7px; font-size: 9px; font-weight: 800; }
+QLabel[flowBadge="target"] { color: #9FF3E1; background: #123B37; border-radius: 7px; padding: 3px 7px; font-size: 9px; font-weight: 800; }
+QLabel[dropHint="true"] { color: #67E8F9; font-size: 9px; font-weight: 800; }
+QLabel[flowCardTitle="true"] { color: #F2F6FF; font-size: 14px; font-weight: 800; }
+QLabel[flowMuted="true"] { color: #8293AD; }
+QLabel[flowCardMeta="true"] { color: #A7B7CD; font-size: 10px; }
+QLabel[flowEmpty="true"] { color: #71819C; padding: 30px; }
+QFrame#quick_transfer_center { background: transparent; border: 0; }
+QLabel#quick_transfer_arrow { color: #5FE1F3; font-size: 20px; font-weight: 900; }
+QFrame#quick_transfer_route { border: 1px solid #2B4264; border-radius: 12px; background: #101A2D; }
+QLabel#quick_route_source { color: #C8C4FF; font-size: 15px; font-weight: 800; }
+QLabel#quick_route_target { color: #9FF3E1; font-size: 15px; font-weight: 800; }
+QLabel#quick_route_arrow { color: #5FE1F3; font-size: 24px; font-weight: 900; }
+QLabel#quick_transfer_section_title { color: #EDF4FF; font-size: 14px; font-weight: 800; }
+QFrame[flowMetric="true"] { background: #10192B; border: 1px solid #293A55; border-radius: 10px; }
+QLabel[metricCaption="true"] { color: #7F90AA; font-size: 9px; font-weight: 700; }
+QLabel[metricValue="true"] { color: #F6F8FF; font-size: 19px; font-weight: 850; }
+QLabel#quick_transfer_status { padding: 10px 12px; border-radius: 9px; background: #101A2C; border: 1px solid #293A55; color: #C7D3E7; }
+QPushButton#btn_quick_transfer_primary { min-width: 180px; min-height: 40px; }
+QToolButton#btn_quick_transfer_advanced { color: #8FA1BC; border: 0; }
+QPlainTextEdit#txt_quick_transfer_advanced { background: #0D1525; border: 1px solid #253650; border-radius: 9px; color: #9FB0C8; }
+
+/* Automation Studio V2 */
+QWidget#page_automation_studio { background: transparent; }
+QFrame#studio_hero {
+    border: 1px solid #294260; border-left: 3px solid #22D3EE; border-radius: 14px;
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101A30,stop:.55 #10243A,stop:1 #0D3035);
+}
+QLabel#studio_title { color: #F7FAFF; font-size: 24px; font-weight: 850; }
+QLabel#studio_subtitle { color: #9AAEC6; }
+QLabel#studio_instruction { color: #AFC1D8; font-size: 13px; font-weight: 800; padding: 4px; }
+QFrame#studio_panel { background: #0E1728; border: 1px solid #263751; border-radius: 14px; }
+QLabel#studio_panel_title { color: #EDF4FF; font-size: 13px; font-weight: 850; }
+QLabel[studioMuted="true"] { color: #8091AA; }
+QLabel[studioEmpty="true"] { color: #75859D; padding: 34px; }
+QFrame#studio_center_lane { background: transparent; border: 0; }
+QLabel#studio_route_arrow { color: #5FE1F3; font-size: 20px; font-weight: 900; }
+QLabel#studio_status {
+    padding: 10px 12px; border-radius: 9px; background: #101A2C;
+    border: 1px solid #293A55; color: #C6D2E6;
+}
+
+/* Live member job UX v2 */
+QFrame#live_job_chip {
+    background: #0E1B2E;
+    border: 1px solid #27405F;
+    border-radius: 10px;
+}
+QFrame#live_job_chip[state="running"] {
+    border-color: #22D3EE;
+    background: #0C2430;
+}
+QFrame#live_job_chip[state="success"] {
+    border-color: #34D399;
+    background: #0D2A25;
+}
+QFrame#live_job_chip[state="warning"] {
+    border-color: #F59E0B;
+    background: #2A2010;
+}
+QFrame#live_job_chip[state="error"] {
+    border-color: #FB7185;
+    background: #2A151D;
+}
+QPushButton#btn_live_job_chip {
+    border: 0;
+    background: transparent;
+    padding: 0px 5px;
+    min-height: 24px;
+    color: #D9F7FF;
+    font-size: 11px;
+    font-weight: 800;
+}
+QProgressBar#progress_live_job_chip {
+    border: 0;
+    background: #203049;
+    border-radius: 1px;
+}
+QProgressBar#progress_live_job_chip::chunk {
+    background: #22D3EE;
+    border-radius: 1px;
+}
+QFrame#quick_live_activity {
+    background: #0E182A;
+    border: 1px solid #2C4363;
+    border-left: 3px solid #22D3EE;
+    border-radius: 11px;
+}
+QLabel#lbl_quick_live_pulse {
+    color: #22D3EE;
+    font-size: 22px;
+    font-weight: 900;
+}
+QLabel#lbl_quick_live_title {
+    color: #F5F9FF;
+    font-size: 12px;
+    font-weight: 850;
+}
+QLabel#lbl_quick_live_member {
+    color: #DCEBFF;
+    font-size: 12px;
+    font-weight: 750;
+}
+QLabel#lbl_quick_live_account {
+    color: #7DD3FC;
+    font-size: 11px;
+    font-weight: 750;
+}
+QLabel#lbl_quick_live_feed {
+    color: #8EA3BE;
+    font-size: 10px;
+}
+QPushButton#btn_quick_background {
+    min-height: 32px;
+    padding: 5px 12px;
+    border: 1px solid #355170;
+    border-radius: 8px;
+    background: #111F34;
+    color: #D7E6F8;
+}
+QPushButton#btn_quick_background:hover {
+    border-color: #22D3EE;
+    background: #10283A;
+}
+
+/* Group Board UX V2 */
+QFrame#group_board_intro { background: #0D1A2D; border: 1px solid #233A58; border-left: 3px solid #22D3EE; border-radius: 12px; }
+QLabel#lbl_group_board_heading { color: #F5F9FF; font-size: 20px; font-weight: 900; }
+QLabel#lbl_group_board_description, QLabel#lbl_group_board_footer, QLabel#lbl_group_lane_subtitle { color: #8EA6C5; }
+QLineEdit#le_group_board_search { min-height: 38px; border: 1px solid #2D4564; border-radius: 9px; background: #101B2D; padding: 0 11px; }
+QFrame#group_board_lane { background: #0C1525; border: 1px solid #243750; border-radius: 12px; }
+QFrame#group_board_lane[dropActive="true"] { border: 2px solid #22D3EE; background: #0B2230; }
+QLabel#lbl_group_lane_title { color: #EAF3FF; font-size: 12px; font-weight: 900; }
+QLabel#lbl_group_lane_count { color: #7DD3FC; background: #102B3A; border: 1px solid #1D5369; border-radius: 9px; padding: 2px 7px; font-weight: 850; }
+QLabel#lbl_group_lane_drop_hint { color: #67E8F9; background: #0A1C2A; border: 1px dashed #2B6074; border-radius: 8px; font-size: 9px; font-weight: 850; }
+QFrame#group_board_card { background: #111D31; border: 1px solid #263B59; border-radius: 10px; }
+QFrame#group_board_card:hover { border-color: #38BDF8; background: #12233A; }
+QFrame#group_board_card[role="source"] { border-left: 3px solid #A78BFA; }
+QFrame#group_board_card[role="target"] { border-left: 3px solid #34D399; }
+QLabel#lbl_group_board_title { color: #F4F8FF; font-size: 12px; font-weight: 850; }
+QLabel#lbl_group_board_subtitle { color: #7DD3FC; }
+QLabel#lbl_group_board_meta { color: #8299B8; font-size: 10px; }
+QLabel#lbl_group_board_badge { color: #D8E7FB; background: #182841; border: 1px solid #2A4162; border-radius: 7px; padding: 2px 6px; font-size: 8px; font-weight: 900; }
+
+/* Add Member One-Board UX */
+QWidget#page_add_member { background: transparent; }
+QFrame#add_member_hero {
+    border: 1px solid #2A4363; border-left: 3px solid #22D3EE; border-radius: 14px;
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #111B31,stop:.58 #10253B,stop:1 #0D3035);
+}
+QLabel#add_member_title { color: #F6FAFF; font-size: 24px; font-weight: 900; }
+QLabel#add_member_subtitle { color: #9DB0C8; }
+QFrame#add_member_board_bar, QFrame#group_library_bar {
+    background: #0E182A; border: 1px solid #273B57; border-radius: 11px;
+}
+QLabel#lbl_add_member_board_title, QLabel#lbl_group_library_heading { color: #EDF5FF; font-size: 15px; font-weight: 900; }
+QLabel#lbl_add_member_board_hint, QLabel#lbl_add_member_page_status, QLabel#lbl_group_library_hint { color: #8EA4C1; }
+QLabel#lbl_add_member_selection {
+    color: #C6D6EA; background: #0D1728; border: 1px solid #263A56; border-radius: 9px; padding: 9px 11px;
+}
+QFrame#add_member_group_card, QFrame#group_library_card {
+    background: #111D31; border: 1px solid #2A3D5B; border-radius: 11px;
+}
+QFrame#add_member_group_card:hover, QFrame#group_library_card:hover { border-color: #38BDF8; background: #12233A; }
+QFrame#add_member_group_card[selectedSource="true"] { border: 2px solid #A78BFA; background: #1A1D3B; }
+QFrame#add_member_group_card[dropActive="true"] { border: 2px solid #34D399; background: #0F2A29; }
+QLabel#lbl_add_member_group_title, QLabel#lbl_group_library_title { color: #F4F8FF; font-size: 13px; font-weight: 850; }
+QLabel#lbl_add_member_group_username, QLabel#lbl_group_library_username { color: #7DD3FC; }
+QLabel#lbl_add_member_group_meta, QLabel#lbl_group_library_meta { color: #8299B8; font-size: 10px; }
+QLabel#lbl_add_member_group_drag {
+    color: #67E8F9; background: #102A39; border: 1px solid #24596D;
+    border-radius: 7px; padding: 2px 7px; font-size: 8px; font-weight: 900;
+}
+
+/* Add Member Left Right V2 */
+QFrame#add_member_column {
+    background: #0C1525;
+    border: 1px solid #253852;
+    border-radius: 12px;
+}
+QLabel#lbl_add_member_column_title {
+    color: #F2F7FF;
+    font-size: 13px;
+    font-weight: 900;
+}
+QLabel#lbl_add_member_column_subtitle {
+    color: #8499B5;
+}
+QFrame#add_member_source_card,
+QFrame#add_member_target_card {
+    background: #111D31;
+    border: 1px solid #2A3D5B;
+    border-radius: 10px;
+}
+QFrame#add_member_source_card:hover {
+    border-color: #A78BFA;
+    background: #191D38;
+}
+QFrame#add_member_source_card[selectedSource="true"] {
+    border: 2px solid #A78BFA;
+    background: #1B1D3E;
+}
+QFrame#add_member_target_card:hover {
+    border-color: #34D399;
+    background: #102A29;
+}
+QFrame#add_member_target_card[dropActive="true"] {
+    border: 2px solid #22D3EE;
+    background: #0D2C34;
+}
+QLabel#lbl_add_member_source_badge {
+    color: #DDD6FE;
+    background: #2D2350;
+    border: 1px solid #5B47A2;
+    border-radius: 7px;
+    padding: 2px 7px;
+    font-size: 8px;
+    font-weight: 900;
+}
+QLabel#lbl_add_member_target_badge {
+    color: #A7F3D0;
+    background: #123B31;
+    border: 1px solid #216C57;
+    border-radius: 7px;
+    padding: 2px 7px;
+    font-size: 8px;
+    font-weight: 900;
+}
+QFrame#add_member_arrow_lane {
+    background: transparent;
+    border: 0;
+}
+QLabel#lbl_add_member_arrow {
+    color: #5FE1F3;
+    font-size: 20px;
+    font-weight: 900;
+}
+
+/* Add Member direct live activity V3 */
+QFrame#live_job_chip { background: #0E1B2E; border: 1px solid #27405F; border-radius: 10px; }
+QFrame#live_job_chip[state="running"] { border-color: #22D3EE; background: #0C2430; }
+QFrame#live_job_chip[state="success"] { border-color: #34D399; background: #0D2A25; }
+QFrame#live_job_chip[state="warning"] { border-color: #F59E0B; background: #2A2010; }
+QFrame#live_job_chip[state="error"] { border-color: #FB7185; background: #2A151D; }
+QPushButton#btn_live_job_chip { border: 0; background: transparent; padding: 0px 5px; min-height: 24px; color: #D9F7FF; font-size: 11px; font-weight: 800; }
+QProgressBar#progress_live_job_chip { border: 0; background: #203049; border-radius: 1px; }
+QProgressBar#progress_live_job_chip::chunk { background: #22D3EE; border-radius: 1px; }
+QFrame#quick_live_activity { background: #0D192B; border: 1px solid #2C4363; border-left: 3px solid #22D3EE; border-radius: 11px; }
+QLabel#lbl_quick_live_pulse { color: #22D3EE; font-size: 22px; font-weight: 900; }
+QLabel#lbl_quick_live_title { color: #F5F9FF; font-size: 12px; font-weight: 850; }
+QLabel#lbl_quick_live_member { color: #E8F2FF; font-size: 12px; font-weight: 800; }
+QLabel#lbl_quick_live_account { color: #7DD3FC; font-size: 11px; font-weight: 750; }
+QLabel#lbl_quick_live_feed { color: #90A5C0; font-size: 10px; }
+QPushButton#btn_quick_background, QPushButton#btn_quick_jobs { min-height: 31px; padding: 5px 11px; border: 1px solid #355170; border-radius: 8px; background: #111F34; color: #D7E6F8; }
+QPushButton#btn_quick_background:hover, QPushButton#btn_quick_jobs:hover { border-color: #22D3EE; background: #10283A; }
+
+/* Add Member visible live activity V4 */
+QFrame#add_member_live_activity {
+    background: #0D192B;
+    border: 1px solid #2D4769;
+    border-left: 3px solid #22D3EE;
+    border-radius: 12px;
+}
+QLabel#lbl_add_live_pulse { color: #22D3EE; font-size: 24px; font-weight: 900; }
+QLabel#lbl_add_live_title { color: #F5F9FF; font-size: 13px; font-weight: 900; }
+QLabel#lbl_add_live_current { color: #EEF6FF; font-size: 12px; font-weight: 800; }
+QLabel#lbl_add_live_via { color: #7DD3FC; font-size: 11px; font-weight: 750; }
+QLabel#lbl_add_live_summary { color: #9EB2CC; font-size: 10px; }
+QFrame#add_live_accounts {
+    background: #0A1423;
+    border: 1px solid #223752;
+    border-radius: 8px;
+}
+QLabel#lbl_add_live_account_name { color: #DDE9F8; font-weight: 750; }
+QLabel#lbl_add_live_account_status { color: #8FE9F4; font-size: 10px; }
+QLabel#lbl_add_live_account_assigned { color: #A7B9CF; font-size: 10px; }
+QLabel#lbl_add_live_feed { color: #8198B7; font-size: 10px; }
+QProgressBar#progress_add_live {
+    border: 0;
+    background: #203049;
+    border-radius: 2px;
+}
+QProgressBar#progress_add_live::chunk {
+    background: #22D3EE;
+    border-radius: 2px;
+}
+QPushButton#btn_add_live_background, QPushButton#btn_add_live_jobs {
+    min-height: 31px;
+    padding: 5px 11px;
+    border: 1px solid #355170;
+    border-radius: 8px;
+    background: #111F34;
+    color: #D7E6F8;
+}
+QPushButton#btn_add_live_background:hover, QPushButton#btn_add_live_jobs:hover {
+    border-color: #22D3EE;
+    background: #10283A;
+}
+
+/* Member Pool Add Members live activity V5 */
+QFrame#add_member_live_activity {
+    background:#0D192B; border:1px solid #2D4769; border-left:3px solid #22D3EE;
+    border-radius:12px;
+}
+QLabel#lbl_add_live_pulse { color:#22D3EE; font-size:24px; font-weight:900; }
+QLabel#lbl_add_live_title { color:#F5F9FF; font-size:13px; font-weight:900; }
+QLabel#lbl_add_live_current { color:#EEF6FF; font-size:12px; font-weight:800; }
+QLabel#lbl_add_live_via { color:#7DD3FC; font-size:11px; font-weight:750; }
+QLabel#lbl_add_live_summary { color:#9EB2CC; font-size:10px; }
+QFrame#add_live_accounts { background:#0A1423; border:1px solid #223752; border-radius:8px; }
+QLabel#lbl_add_live_account_name { color:#DDE9F8; font-weight:750; }
+QLabel#lbl_add_live_account_status { color:#8FE9F4; font-size:10px; }
+QLabel#lbl_add_live_account_assigned { color:#A7B9CF; font-size:10px; }
+QLabel#lbl_add_live_feed { color:#8198B7; font-size:10px; }
+QProgressBar#progress_add_live { border:0; background:#203049; border-radius:2px; }
+QProgressBar#progress_add_live::chunk { background:#22D3EE; border-radius:2px; }
+QPushButton#btn_add_live_background, QPushButton#btn_add_live_jobs {
+    min-height:31px; padding:5px 11px; border:1px solid #355170; border-radius:8px;
+    background:#111F34; color:#D7E6F8;
+}
+QPushButton#btn_add_live_background:hover, QPushButton#btn_add_live_jobs:hover {
+    border-color:#22D3EE; background:#10283A;
+}

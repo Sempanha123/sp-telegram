@@ -9,6 +9,7 @@ from app.dialogs.group_discovery_dialog import GroupDiscoveryDialog
 from app.models.group_table_model import GroupTableModel
 from app.widgets.avatar_delegate import AvatarDelegate
 from app.pages.base_table_page import BaseTablePage
+from app.widgets.group_board import GroupBoardWidget
 
 class GroupsPage(BaseTablePage):
     toastRequested=Signal(str,str)
@@ -36,7 +37,86 @@ class GroupsPage(BaseTablePage):
         self.actions={}
         for obj,text in [("act_group_details","Open Details"),("act_group_sync","Sync Group"),("act_group_refresh_permissions","Refresh Permissions"),("act_group_assign_account","Add Account Mapping"),("act_group_set_primary","Set Primary Account"),("act_group_mark_source","Mark as Source"),("act_group_mark_target","Mark as Target"),("act_group_mark_managed","Mark as Managed"),("act_group_open_telegram","Open in Telegram"),("act_group_export","Export Groups"),("act_group_remove","Remove From Tool")]:a=QAction(text,self);a.setObjectName(obj);self.actions[obj]=a
         self.actions["act_group_details"].triggered.connect(self.open_details);self.actions["act_group_sync"].triggered.connect(self.sync_selected);self.actions["act_group_refresh_permissions"].triggered.connect(self.refresh_permissions);self.actions["act_group_assign_account"].triggered.connect(self.open_details);self.actions["act_group_set_primary"].triggered.connect(self.open_details);self.actions["act_group_mark_source"].triggered.connect(lambda:self.classify("source"));self.actions["act_group_mark_target"].triggered.connect(lambda:self.classify("target"));self.actions["act_group_mark_managed"].triggered.connect(lambda:self.classify("managed"));self.actions["act_group_open_telegram"].triggered.connect(self.open_telegram);self.actions["act_group_export"].triggered.connect(self.export_csv);self.actions["act_group_remove"].triggered.connect(self.remove_selected)
-    def _replace(self,items):self.model.replace_rows(items);self.update_pagination(self.controller.pagination)
+        self._install_group_board()
+        self._apply_simple_group_manager_ui()
+    def _apply_simple_group_manager_ui(self):
+        more=self.action_buttons.get("btn_more_group_actions")
+        if more is not None:
+            more.hide()
+        resolve=self.action_buttons.get("btn_resolve_group")
+        if resolve is not None:
+            resolve.hide()
+        self.table.setToolTip("Double-click for details. Right-click for unique row actions.")
+
+
+    def _install_group_board(self):
+        self.group_board=GroupBoardWidget(self)
+        self.group_board.groupClicked.connect(self._board_open_group)
+
+        for name in ("btn_resolve_group","btn_sync_groups","btn_more_group_actions"):
+            button=self.action_buttons.get(name)
+            if button is not None:
+                button.hide()
+
+        self.action_buttons["btn_add_group"].setText("Add Group")
+        self.action_buttons["btn_discover_groups"].setText("Discover Groups")
+        self.action_buttons["btn_refresh_groups"].setText("Refresh")
+
+        self.filter_host.hide()
+        self.table.hide()
+        self.empty_state.hide()
+        self.pagination_bar.hide()
+        self.root_layout.insertWidget(1,self.group_board,1)
+        self._load_group_board()
+
+    def _load_group_board(self):
+        if not hasattr(self,"group_board"):
+            return
+        try:
+            items,_total=self.controller.get_scoped(None,1,500)
+        except Exception:
+            items=list(getattr(self.controller,"current_items",[]) or [])
+        self.group_board.set_groups(items or [])
+
+    def _board_open_group(self,group_id:int):
+        GroupDetailsDialog(
+            self.controller,
+            int(group_id),
+            self,
+            avatar_service=self.avatar_service,
+        ).exec()
+        self._load_group_board()
+
+    def _board_assign_role(self,group_id:int,role:str):
+        group_id=int(group_id)
+        role=str(role or "").lower()
+
+        if role=="source":
+            changed=self.controller.set_source(group_id,True)
+            if changed is not None:
+                self.controller.set_target(group_id,False)
+                self.toastRequested.emit("Group assigned as Source.","Success")
+        elif role=="target":
+            changed=self.controller.set_target(group_id,True)
+            if changed is not None:
+                self.controller.set_source(group_id,False)
+                self.toastRequested.emit("Group assigned as Target.","Success")
+        elif role=="library":
+            self.controller.set_source(group_id,False)
+            self.controller.set_target(group_id,False)
+            self.toastRequested.emit(
+                "Source/Target role removed. The Telegram group was not changed.",
+                "Info",
+            )
+        else:
+            return
+
+        self.controller.refresh()
+        self._load_group_board()
+
+    def _replace(self,items):
+        self.model.replace_rows(items);self.update_pagination(self.controller.pagination)
+        if hasattr(self,'group_board'):self._load_group_board()
     def add_group(self):AddGroupDialog(self.controller,parent=self).exec()
     def discover(self):GroupDiscoveryDialog(self.controller,self,avatar_service=self.avatar_service).exec()
     def open_details(self):
@@ -87,4 +167,17 @@ class GroupsPage(BaseTablePage):
     def more_menu(self):self._menu(self.action_buttons["btn_more_group_actions"].mapToGlobal(self.action_buttons["btn_more_group_actions"].rect().bottomLeft()))
     def context_menu(self,pos:QPoint):self._menu(self.table.viewport().mapToGlobal(pos))
     def _menu(self,global_pos):
-        m=QMenu(self);m.addAction(self.actions["act_group_details"]);m.addSeparator();m.addAction(self.actions["act_group_sync"]);m.addAction(self.actions["act_group_refresh_permissions"]);m.addSeparator();accounts=m.addMenu("Accounts");accounts.addAction(self.actions["act_group_assign_account"]);accounts.addAction(self.actions["act_group_set_primary"]);classification=m.addMenu("Classification");classification.addAction(self.actions["act_group_mark_source"]);classification.addAction(self.actions["act_group_mark_target"]);classification.addAction(self.actions["act_group_mark_managed"]);m.addSeparator();m.addAction(self.actions["act_group_open_telegram"]);m.addAction(self.actions["act_group_export"]);m.addSeparator();m.addAction(self.actions["act_group_remove"]);m.exec(global_pos)
+        item=self.selected_item()
+        if not item:return
+        m=QMenu(self)
+        m.addAction(self.actions["act_group_details"])
+        m.addAction(self.actions["act_group_refresh_permissions"])
+        classification=m.addMenu("Classification")
+        classification.addAction(self.actions["act_group_mark_source"])
+        classification.addAction(self.actions["act_group_mark_target"])
+        classification.addAction(self.actions["act_group_mark_managed"])
+        m.addSeparator()
+        m.addAction(self.actions["act_group_open_telegram"])
+        m.addSeparator()
+        m.addAction(self.actions["act_group_remove"])
+        m.exec(global_pos)

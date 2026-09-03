@@ -210,9 +210,15 @@ class MemberController(QObject):
         if self.active_invitation_job_id:return self._submit(self.service.resume_target_invitation(self.active_invitation_job_id),"target_invite_resume",0,lambda _r:self.toast_requested.emit("Invitation job resumed.","Info"))
     def stop_target_invitation(self):
         if self.active_invitation_job_id:return self._submit(self.service.stop_target_invitation(self.active_invitation_job_id),"target_invite_stop",0,lambda _r:self.toast_requested.emit("Invitation job stop requested.","Warning"))
+    def smart_transfer_member_ids(self,source_group_id,target_group_id,count=20):
+        try:return self.service.smart_transfer_member_ids(int(source_group_id),int(target_group_id),int(count))
+        except Exception as exc:self._error(exc);return []
     def mass_target_add_preview(self,target_group_id,target_count,source_group_ids,account_ids):
         try:return self.service.mass_target_add_preview(int(target_group_id),int(target_count),list(source_group_ids),list(account_ids))
         except Exception as exc:self._error(exc);return None
+    def mass_add_account_options(self,target_group_id):
+        try:return self.service.mass_add_account_options(int(target_group_id))
+        except Exception as exc:self._error(exc);return []
     def used_account_ids_for_target(self,target_group_id):
         try:return self.service.used_account_ids_for_target(int(target_group_id))
         except Exception as exc:self._error(exc);return set()

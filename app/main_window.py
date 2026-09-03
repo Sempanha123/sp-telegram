@@ -24,6 +24,8 @@ from app.pages.account_pool_page import AccountPoolPage
 from app.pages.accounts_page import AccountsPage
 from app.pages.alerts_page import AlertsPage
 from app.pages.analytics_page import AnalyticsPage
+from app.pages.automation_studio_page import AutomationStudioPage
+from app.pages.add_member_page import AddMemberPage
 from app.pages.blacklist_page import BlacklistPage
 from app.pages.campaigns_page import CampaignsPage
 from app.pages.collector_page import CollectorPage
@@ -46,6 +48,8 @@ from app.license.feature_keys import FeatureKey, LimitKey
 from app.license.license_models import PlanKey
 from app.license.plan_config import PLAN_CONFIG, PLAN_ORDER
 from app.localization import LocalizationManager
+from app.product_ux import apply_product_ux
+from app.live_job_ux import install_live_job_ux
 from app.widgets.sidebar import Sidebar
 from app.widgets.toast import ToastNotification
 from app.widgets.topbar import TopBar
@@ -99,6 +103,8 @@ class MainWindow(QMainWindow):
             app.focusChanged.connect(self._localize_focus_window)
         self._restore_state()
         self._apply_localization()
+        apply_product_ux(self)
+        install_live_job_ux(self)
         self.refresh_all()
         # Runs after the event loop can process worker signals. It never initiates login.
         QTimer.singleShot(0, self.context.account_controller.startup_recovery)
@@ -148,6 +154,7 @@ class MainWindow(QMainWindow):
 
         c = self.context
         self._add_page("dashboard", DashboardPage(c.dashboard_controller, activity_loader=lambda: c.log_repository.get_recent(10)))
+        self._add_page("flow_studio", AddMemberPage(c.group_controller, c.member_controller))
         self._add_page("operations", OperationsPage(c.operations_controller))
         self._add_page("accounts", AccountsPage(c.account_controller, avatar_service=c.avatar_service))
         self._add_page("account_pool", AccountPoolPage(c.account_pool_controller, c.account_controller, c.group_controller, avatar_service=c.avatar_service))
@@ -204,6 +211,7 @@ class MainWindow(QMainWindow):
                 controller.toast_requested.connect(self.toast_requested)
 
         self.pages["dashboard"].quickAction.connect(self.on_dashboard_quick_action)
+        self.pages["flow_studio"].navigateRequested.connect(self.navigate)
         self.pages["members"].openCollectorRequested.connect(lambda: self.navigate("collector", "Collector"))
         self.pages["source_groups"].viewMembersRequested.connect(lambda _gid: self.navigate("members", "Member Pool"))
         campaigns = self.pages["campaigns"]
